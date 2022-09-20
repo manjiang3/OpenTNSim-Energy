@@ -1,3 +1,5 @@
+[![License: MIT](https://img.shields.io/badge/License-MIT-informational.svg)](https://github.com/manjiang3/OpenTNSim-Energy/edit/main/LICENSE.txt)
+[![DOI](https://zenodo.org/badge/538904570.svg)](https://zenodo.org/badge/latestdoi/538904570)
 ## OpenTNSim-Energy
 ### Advancing decarbonization in waterborne supply chains worldwide
 
@@ -17,4 +19,4 @@ Besides the inland freight shipping application showing by the schematic diagram
 
 OpenTNSim-Energy is built upon **Open** source **T**ransport **N**etwork **Sim**ulation (OpenTNSim) (Van Koningsveld & Den Uijl, 2020, URL: https://github.com/TUDelft-CITG/OpenTNSim/, doi:10.5281/zenodo.3813871) 
 
-OpenTNSim-Energy is under MIT license, aimming to benefit all the related stakeholders (shipping companies, ship builders, marine engine manufacturers, energy suppliers, policy makers, authorities, etc.) in short and long terms during waterborne energy transition.
+OpenTNSim-Energy benefits all the related stakeholders (shipping companies, ship builders, marine engine manufacturers, energy suppliers, policy makers, authorities, etc.) in short and long terms during waterborne energy transition.
