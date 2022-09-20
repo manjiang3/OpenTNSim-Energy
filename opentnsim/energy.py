@@ -461,179 +461,6 @@ class ConsumesEnergy:
 
         return self.R_APP
 
-    def karpov(self, v, h_0):
-        """Intermediate calculation: Karpov
-
-        - The Karpov method computes a velocity correction that accounts for limited water depth (corrected velocity V2,
-          expressed as "Vs + delta_V" in the paper), but it also can be used for deeper water depth (h_0 / T >= 9.5).
-        - V2 has to be implemented in the wave resistance (R_W) and the residual resistance terms (R_res: R_TR, R_A, R_B)
-        """
-
-        # The Froude number used in the Karpov method is the depth related froude number F_rh
-
-        # The different alpha** curves are determined with a sixth power polynomial approximation in Excel
-        # A distinction is made between different ranges of Froude numbers, because this resulted in a better approximation of the curve
-        assert self.g >= 0, f"g should be positive: {self.g}"
-        assert h_0 >= 0, f"g should be positive: {h_0}"
-        self.F_rh = v / np.sqrt(self.g * h_0)
-
-        if self.F_rh <= 0.4:
-
-            if 0 <= h_0 / self.T < 1.75:
-                self.alpha_xx = (
-                    (-4 * 10 ** (-12)) * self.F_rh**3
-                    - 0.2143 * self.F_rh**2
-                    - 0.0643 * self.F_rh
-                    + 0.9997
-                )
-            if 1.75 <= h_0 / self.T < 2.25:
-                self.alpha_xx = (
-                    -0.8333 * self.F_rh**3
-                    + 0.25 * self.F_rh**2
-                    - 0.0167 * self.F_rh
-                    + 1
-                )
-            if 2.25 <= h_0 / self.T < 2.75:
-                self.alpha_xx = (
-                    -1.25 * self.F_rh**4
-                    + 0.5833 * self.F_rh**3
-                    - 0.0375 * self.F_rh**2
-                    - 0.0108 * self.F_rh
-                    + 1
-                )
-            if h_0 / self.T >= 2.75:
-                self.alpha_xx = 1
-
-        if self.F_rh > 0.4:
-            if 0 <= h_0 / self.T < 1.75:
-                self.alpha_xx = (
-                    -0.9274 * self.F_rh**6
-                    + 9.5953 * self.F_rh**5
-                    - 37.197 * self.F_rh**4
-                    + 69.666 * self.F_rh**3
-                    - 65.391 * self.F_rh**2
-                    + 28.025 * self.F_rh
-                    - 3.4143
-                )
-            if 1.75 <= h_0 / self.T < 2.25:
-                self.alpha_xx = (
-                    2.2152 * self.F_rh**6
-                    - 11.852 * self.F_rh**5
-                    + 21.499 * self.F_rh**4
-                    - 12.174 * self.F_rh**3
-                    - 4.7873 * self.F_rh**2
-                    + 5.8662 * self.F_rh
-                    - 0.2652
-                )
-            if 2.25 <= h_0 / self.T < 2.75:
-                self.alpha_xx = (
-                    1.2205 * self.F_rh**6
-                    - 5.4999 * self.F_rh**5
-                    + 5.7966 * self.F_rh**4
-                    + 6.6491 * self.F_rh**3
-                    - 16.123 * self.F_rh**2
-                    + 9.2016 * self.F_rh
-                    - 0.6342
-                )
-            if 2.75 <= h_0 / self.T < 3.25:
-                self.alpha_xx = (
-                    -0.4085 * self.F_rh**6
-                    + 4.534 * self.F_rh**5
-                    - 18.443 * self.F_rh**4
-                    + 35.744 * self.F_rh**3
-                    - 34.381 * self.F_rh**2
-                    + 15.042 * self.F_rh
-                    - 1.3807
-                )
-            if 3.25 <= h_0 / self.T < 3.75:
-                self.alpha_xx = (
-                    0.4078 * self.F_rh**6
-                    - 0.919 * self.F_rh**5
-                    - 3.8292 * self.F_rh**4
-                    + 15.738 * self.F_rh**3
-                    - 19.766 * self.F_rh**2
-                    + 9.7466 * self.F_rh
-                    - 0.6409
-                )
-            if 3.75 <= h_0 / self.T < 4.5:
-                self.alpha_xx = (
-                    0.3067 * self.F_rh**6
-                    - 0.3404 * self.F_rh**5
-                    - 5.0511 * self.F_rh**4
-                    + 16.892 * self.F_rh**3
-                    - 20.265 * self.F_rh**2
-                    + 9.9002 * self.F_rh
-                    - 0.6712
-                )
-            if 4.5 <= h_0 / self.T < 5.5:
-                self.alpha_xx = (
-                    0.3212 * self.F_rh**6
-                    - 0.3559 * self.F_rh**5
-                    - 5.1056 * self.F_rh**4
-                    + 16.926 * self.F_rh**3
-                    - 20.253 * self.F_rh**2
-                    + 10.013 * self.F_rh
-                    - 0.7196
-                )
-            if 5.5 <= h_0 / self.T < 6.5:
-                self.alpha_xx = (
-                    0.9252 * self.F_rh**6
-                    - 4.2574 * self.F_rh**5
-                    + 5.0363 * self.F_rh**4
-                    + 3.3282 * self.F_rh**3
-                    - 10.367 * self.F_rh**2
-                    + 6.3993 * self.F_rh
-                    - 0.2074
-                )
-            if 6.5 <= h_0 / self.T < 7.5:
-                self.alpha_xx = (
-                    0.8442 * self.F_rh**6
-                    - 4.0261 * self.F_rh**5
-                    + 5.313 * self.F_rh**4
-                    + 1.6442 * self.F_rh**3
-                    - 8.1848 * self.F_rh**2
-                    + 5.3209 * self.F_rh
-                    - 0.0267
-                )
-            if 7.5 <= h_0 / self.T < 8.5:
-                self.alpha_xx = (
-                    0.1211 * self.F_rh**6
-                    + 0.628 * self.F_rh**5
-                    - 6.5106 * self.F_rh**4
-                    + 16.7 * self.F_rh**3
-                    - 18.267 * self.F_rh**2
-                    + 8.7077 * self.F_rh
-                    - 0.4745
-                )
-
-            if 8.5 <= h_0 / self.T < 9.5:
-                if self.F_rh < 0.6:
-                    self.alpha_xx = 1
-                if self.F_rh >= 0.6:
-                    self.alpha_xx = (
-                        -6.4069 * self.F_rh**6
-                        + 47.308 * self.F_rh**5
-                        - 141.93 * self.F_rh**4
-                        + 220.23 * self.F_rh**3
-                        - 185.05 * self.F_rh**2
-                        + 79.25 * self.F_rh
-                        - 12.484
-                    )
-            if h_0 / self.T >= 9.5:
-                if self.F_rh < 0.6:
-                    self.alpha_xx = 1
-                if self.F_rh >= 0.6:
-                    self.alpha_xx = (
-                        -6.0727 * self.F_rh**6
-                        + 44.97 * self.F_rh**5
-                        - 135.21 * self.F_rh**4
-                        + 210.13 * self.F_rh**3
-                        - 176.72 * self.F_rh**2
-                        + 75.728 * self.F_rh
-                        - 11.893
-                    )
-
-        self.V_2 = v / self.alpha_xx
 
     def calculate_wave_resistance(self, v, h_0):
         """Wave resistance
@@ -643,11 +470,9 @@ class ConsumesEnergy:
         - In shallow water, the wave resistance shows an asymptotical behaviour by reaching the critical speed
         """
 
-        self.karpov(v, h_0)
 
         assert self.g >= 0, f"g should be positive: {self.g}"
         assert self.L >= 0, f"L should be positive: {self.L}"
-        # self.F_rL = self.V_2 / np.sqrt(self.g * self.L)  # Froude number based on ship's speed to water and its length of waterline
         self.F_rL = v / np.sqrt(
             self.g * self.L
         )  # Froude number based on ship's speed to water and its length of waterline
@@ -730,16 +555,14 @@ class ConsumesEnergy:
         """Residual resistance terms
 
         - Holtrop and Mennen (1982) defined three residual resistance terms:
-        - 1) Resistance due to immersed transom (R_TR), Karpov corrected velocity V2 is used
-        - 2) Resistance due to model-ship correlation (R_A), Karpov corrected velocity V2 is used
-        - 3) Resistance due to the bulbous bow (R_B), Karpov corrected velocity V2 is used
+        - 1) Resistance due to immersed transom (R_TR)
+        - 2) Resistance due to model-ship correlation (R_A)
+        - 3) Resistance due to the bulbous bow (R_B)
         """
 
-        self.karpov(v, h_0)
 
-        self.V_2 = v
         # Resistance due to immersed transom: R_TR [kN]
-        self.F_nT = self.V_2 / np.sqrt(
+        self.F_nT = v / np.sqrt(
             2 * self.g * self.A_T / (self.B + self.B * self.C_WP)
         )  # Froude number based on transom immersion
         assert not isinstance(
@@ -750,7 +573,7 @@ class ConsumesEnergy:
             1 - 0.2 * self.F_nT
         )  # Assuming F_nT < 5, this is the expression for coefficient c_6
 
-        self.R_TR = (0.5 * self.rho * (self.V_2**2) * self.A_T * self.c_6) / 1000
+        self.R_TR = (0.5 * self.rho * (v**2) * self.A_T * self.c_6) / 1000
 
         # Model-ship correlation resistance: R_A [kN]
 
@@ -773,14 +596,14 @@ class ConsumesEnergy:
             self.C_A, complex
         ), f"C_A number should not be complex: {self.C_A}"
 
-        self.R_A = (0.5 * self.rho * (self.V_2**2) * self.S * self.C_A) / 1000  # kW
+        self.R_A = (0.5 * self.rho * (v**2) * self.S * self.C_A) / 1000  # kW
 
         # Resistance due to the bulbous bow (R_B)
 
         # Froude number based on immersoin of bulbous bow [-]
-        self.F_ni = self.V_2 / np.sqrt(
+        self.F_ni = v / np.sqrt(
             self.g
-            * (self.T_F - self.h_B - 0.25 * np.sqrt(self.A_BT) + 0.15 * self.V_2**2)
+            * (self.T_F - self.h_B - 0.25 * np.sqrt(self.A_BT) + 0.15 * v**2)
         )
 
         self.P_B = (0.56 * np.sqrt(self.A_BT)) / (
@@ -844,46 +667,23 @@ class ConsumesEnergy:
         Note:
         In this version, we define the propulsion power as P_d (Delivered Horse Power) ratehr than P_b (Brake Horse Power). The reason we choose P_d as propulsion power is to prevent double use of the same power efficiencies.
         The details are 1) The P_b calculation involves gearing efficiency and transmission efficiency already while P_d not. 2) P_d is the power delivered to propellers. 3) To estimate the reneable fuel use, we will involve "energy conversion efficicies" later in the calculation. The 'energy conversion efficicies' for renewable fuel powered vessels are commonly measured/given as a whole covering the engine power systems, includes different engine (such as fuel cell engine, battery engine, internal combustion engine, hybird engine) efficiencies, and corresponding gearbox efficiencies, AC/DC converter efficiencies, excludes the efficiency items of propellers.
-        Therefore, to algin with the later use of "energy conversion efficicies" for fuel use estimation and prevent double use of some power efficiencies such as gearing efficiency, here we choose P_d as propulsion power.
+        Therefore, to algin with the later use of "energy conversion efficicies" for fuel use (inclu renewables) estimation and prevent double use of some power efficiencies such as gearing efficiency, here we choose P_d as propulsion power.
         """
-
-        # Required power for systems on board, "5%" based on De Vos and van Gils (2011):Walstrom versus generators troom
-        # self.P_hotel = 0.05 * self.P_installed
-
+        
         # Required power for propulsion
         # Effective Horse Power (EHP), P_e
+        
         self.P_e = v * self.R_tot
-
-        #         # Calculation hull efficiency
-        #         dw = np.zeros(101)  # velocity correction coefficient
-        #         counter = 0
-
-        #         if self.F_rL < 0.2:
-        #             self.dw = 0
-        #         else:
-        #             self.dw = 0.1
-
-        #         self.w = (
-        #             0.11
-        #             * (0.16 / self.x)
-        #             * self.C_B
-        #             * np.sqrt((self.delta ** (1 / 3)) / self.D_s)
-        #             - self.dw
-        #         )  # wake fraction 'w'
-
-        #         assert not isinstance(self.w, complex), f"w should not be complex: {self.w}"
-
-        #         if self.x == 1:
-        #             self.t = 0.6 * self.w * (1 + 0.67 * self.w)  # thrust deduction factor 't'
-        #         else:
-        #             self.t = 0.8 * self.w * (1 + 0.25 * self.w)
-
-        #         self.eta_h = (1 - self.t) / (1 - self.w)  # hull efficiency eta_h
-
+ 
         # Calculation hydrodynamic efficiency eta_D  according to Simic et al (2013) "On Energy Efficiency of Inland Waterway Self-Propelled Cargo Vessels", https://www.researchgate.net/publication/269103117
-        # hydrodynamic efficiency eta_D is a ratio of power used to propel the ship and delivered power
-        # relation between eta_D and ship velocity v
-
+        # hydrodynamic efficiency eta_D (also called propulsive efficiency) is a ratio of power used to propel the ship and delivered power
+        
+        # Below is the relation between eta_D and Froud depth number F_rh (which related to the ship velocity v and sailing water depth) based on Simic et al (2013), and validated by real-world data
+        assert self.g >= 0, f"g should be positive: {self.g}"
+        assert h_0 >= 0, f"g should be positive: {h_0}"
+        
+        self.F_rh = v / np.sqrt(self.g * h_0)
+        
         if h_0 >= 9:
             if self.F_rh >= 0.5:
                 self.eta_D = 0.6
@@ -942,10 +742,6 @@ class ConsumesEnergy:
         self.P_d = self.P_e / self.eta_D
 
         logger.debug("eta_D = {:.2f}".format(self.eta_D))
-        # self.P_d = self.P_e / (self.eta_o * self.eta_r * self.eta_h)
-
-        # Brake Horse Power (BHP), P_b (P_b was used in OpenTNsim version v1.1.2. we do not use it in this version. The reseaon is listed in the doc string above)
-        # self.P_b = self.P_d / (self.eta_t * self.eta_g)
 
         self.P_propulsion = (
             self.P_d
@@ -970,7 +766,7 @@ class ConsumesEnergy:
         ), f"P_given number should not be complex: {self.P_given}"
 
         # return these three varible:
-        # 1) self.P_propulsion, for the convience of validation.  (propulsion power and fuel used for propulsion),
+        # 1) self.P_propulsion, for the convenience of validation.  (propulsion power and fuel used for propulsion),
         # 2) self.P_tot, know the required power, especially when it exceeds installed engine power while sailing shallower and faster
         # 3) self.P_given, the actual power the engine gives for "propulsion + hotel" within its capacity (means installed power). This varible is used for calculating delta_energy of each sailing time step.
 
@@ -1048,12 +844,12 @@ class ConsumesEnergy:
         """
 
         # gravimetric net energy density
-        self.Edens_diesel_mass = 11.67 / 1000  # kWh/kg
-        self.Edens_LH2_mass = 33.3 / 1000  # kWh/kg
-        self.Edens_eLNG_mass = 13.3 / 1000  # kWh/kg
-        self.Edens_eMethanol_mass = 5.47 / 1000  # kWh/kg
-        self.Edens_eNH3_mass = 5.11 / 1000  # kWh/kg
-        self.Edens_Li_NMC_Battery_mass = 0.11 / 1000  # kWh/kg
+        self.Edens_diesel_mass = 11.67 / 1000  # kWh/g
+        self.Edens_LH2_mass = 33.3 / 1000  # kWh/g
+        self.Edens_eLNG_mass = 13.3 / 1000  # kWh/g
+        self.Edens_eMethanol_mass = 5.47 / 1000  # kWh/g
+        self.Edens_eNH3_mass = 5.11 / 1000  # kWh/g
+        self.Edens_Li_NMC_Battery_mass = 0.11 / 1000  # kWh/g
 
         # volumetric net energy density
         self.Edens_diesel_vol = 9944  # kWh/m3
@@ -1076,7 +872,7 @@ class ConsumesEnergy:
 
         """
         self.Eeff_FuelCell = 0.45
-        self.Eeff_ICE = 0.38
+        self.Eeff_ICE = 0.38    
         self.Eeff_Battery = 0.8
 
     def SFC_general(self):
@@ -1112,7 +908,7 @@ class ConsumesEnergy:
         )  # g/kWh
 
         # SFC in mass for ICE engine
-        self.SFC_diesel_ICE_mass = 1 / (self.Edens_diesel_mass * self.Eeff_ICE)  # g/kWh
+        self.SFC_diesel_ICE_mass = 1 / (self.Edens_diesel_mass * self.Eeff_ICE)  # g/kWh, note that here SFC=1/(11.67*0.38)=225 g/kWh, which equals to the results of engine constructed between 1980-1984
         self.SFC_eLNG_ICE_mass = 1 / (self.Edens_eLNG_mass * self.Eeff_ICE)  # g/kWh
         self.SFC_eMethanol_ICE_mass = 1 / (
             self.Edens_eMethanol_mass * self.Eeff_ICE
@@ -1200,7 +996,7 @@ class ConsumesEnergy:
         self.C_partial_load = (
             opentnsim.energy.load_partial_engine_load_correction_factors()
         )
-        self.C_partial_load_battery = 1  # assume the battery energy consumption is not influenced by different engine load
+        self.C_partial_load_battery = 1  # assume the battery energy consumption is not influenced by different engine load. this will be updated in the future with data availiable
 
         for i in range(20):
             # If the partial engine load is smaller or equal to 5%, the correction factors corresponding to P_partial = 5% are assigned.
@@ -1535,7 +1331,7 @@ class ConsumesEnergy:
         """
         self.diesel_use_g_m = (
             self.P_given * self.final_SFC_diesel_ICE_mass / v
-        ) / 3600  # without considering C_year
+        ) / 3600  # use default SFC (from Marin report, which is caculated as 225 g/kwh)
         self.diesel_use_g_m_C_year = (
             self.P_given * self.final_SFC_diesel_C_year_ICE_mass / v
         ) / 3600  # considering C_year
@@ -1549,7 +1345,7 @@ class ConsumesEnergy:
         """
         self.diesel_use_g_s = (
             self.P_given * self.final_SFC_diesel_ICE_mass / 3600
-        )  # without considering C_year
+        )  # use default SFC (from Marin report, which is caculated as 225 g/kwh)
         self.diesel_use_g_s_C_year = (
             self.P_given * self.final_SFC_diesel_C_year_ICE_mass / 3600
         )  # considering C_year
@@ -1954,15 +1750,8 @@ class EnergyCalculation:
                     )
 
                     self.energy_use["water depth"].append(h_0)
-                    # self.energy_use["water depth info from vaarweginformatie.nl"].append(depth)
+                    # to do: add option enabling getting depth from large waterway network: self.energy_use["water depth info from vaarweginformatie.nl"].append(depth)
 
-        # TODO: er moet hier een heel aantal dingen beter worden ingevuld
-        # - de kruissnelheid is nu nog per default 1 m/s (zie de Movable mixin). Eigenlijk moet in de
-        #   vessel database ook nog een speed_loaded en een speed_unloaded worden toegevoegd.
-        # - er zou nog eens goed gekeken moeten worden wat er gedaan kan worden rond kustwerken
-        # - en er is nog iets mis met de snelheid rond een sluis
-
-        # - add HasCurrent Class or def
 
     def plot(self):
 

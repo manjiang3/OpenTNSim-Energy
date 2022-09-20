@@ -264,7 +264,6 @@ class VesselProperties:
                 vessel_type=self.vessel_type,
                 bounds=(0, 40),
             )  # this need to be tested
-        # todo: for later possibly include Payload2T
 
         return T
 
