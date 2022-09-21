@@ -5,14 +5,6 @@ The vessel-waterway interaction is complex, since the vessel's sailing behaviors
 This package combine with "optimal sailing stratigies notebook" provides stratigies for preventing ship grounding, optimizing cargo capacity, optimizing fuel usage, reducing emissions, considering sailing duration, etc.
 """
 
-# To Do in this pacakge:
-# 1) add "burning lighter" function to monitor the fuel weight decreasing along the route. For the battery-container or electricity powered vessel, the "fuel weight" is constant.
-# 2）add "refueling heavier" function to show the fuel weight increased again at the refueling stations. For the battery-container or electricy powered vessel, the "fuel weight" is constant.
-# 3) add "get_fuel_weight" function which call both the "burning lighter" and "refueling heavier" functions to take into account the influence of the variation of fuel weight to the actual draught and payload.
-# 4) add "get_refueling_duration" function. For the battery-container, the duration is the unloading and loading time for the battery-containers.
-# 5) add "get_optimal_refueling_amount" function. It's not always beneficial to be fully refueled with fuel for sailing, since more fuel on board leads to less cargo and there might still be residual fuel in the tank after a round trip if refuel too much. Therefore, it's needed to calculate the optimal refuling amount for each unique sailing case (route, vessel size & type, payload, time plan, refueling spots along the route).  The optimal refueling amount for a transport case determined by both the fuel consumption in time and space and the locations of refuling spots.
-# 6) consider writting the "fix power or fix speed" example which is in the paper as a function into this pacakge in the future or Figure 10 -12 notebooks are enough already? What might it benefit if adds this function?
-
 
 import functools
 import itertools
@@ -245,47 +237,6 @@ def Payload2T(vessel, Payload_strategy, vessel_type, bounds=(0, 5)):
 
     print('T_Payload2T = {:.2f}'.format(T_Payload2T))
     return T_Payload2T
-
-# def get_ESS_mass_volume():
-#     '''For now, we assume the mass and volume of Energy Strorage System on board is proportional to installed engine power'''    
-#     ESS_mass = 1 * vessel.P_install
-#     ESS_volume = 2 * vessel.P_install
-    
-#     return ESS_mass, ESS_volume  
-
-# def get_renewable_fuel_amount_on_board(renewable_fuel_mass, volume_factor, packing_factor):
-#     ''' besides ton, m3, include battery container, include equvlent TEU  '''
-#     if vessel.renewable_fuel_mass:
-#         renewable_fuel_mass = vessel.renewable_fuel_mass
-#     elif energy.py  :
-#        # to do get renewable_fuel_mass form energy.py
-#         energycalculation = opentnsim.energy.EnergyCalculation(FG, vessel)       
-#         renewable_fuel_mass = energycalculation.calculate_energy_consumption()
-#     elif input the times diesel mass or volume:     
-# #       set several suitable mass choices, e.g. same as diesel, 2*diesel, 3*diesel ,can set as input times diesel
-#         renewable_fuel_mass = 
-
-# #   do the same for volume
-
-#     renewable_fuel_mass = 
-        
-#     renewable_fuel_and_ESS_mass = renewable_fuel_mass + ESS_mass
-#     renewable_fuel_volume = 
-#     renewable_fuel_and_storage_volume =  
-    
-#     return renewable_fuel_mass 
-
-# def get_adjusted_cargo_amount(volume_factor, packing_factor):
-#     ''' we can either use packing factor or use ESS mass& volume,or combine both，'''
-    
-#     packing_factor
-    
-#     adjusted_cargo_mass = DWT_final - renewable_fuel_mass
-    
-#     reduced_cargo_volume = renewable_fuel_volume
-    
-    
-#     return cargo_loss_perc_mass, cargo_loss_perc_vol, cargo_loss_mass, cargo_loss_vol 
  
 
 def get_v(vessel, width, depth, margin, bounds):
