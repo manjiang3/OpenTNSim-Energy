@@ -20,3 +20,12 @@ Besides the inland freight shipping application showing by the schematic diagram
 OpenTNSim-Energy is built upon **Open** source **T**ransport **N**etwork **Sim**ulation (OpenTNSim) (Van Koningsveld & Den Uijl, 2020, URL: https://github.com/TUDelft-CITG/OpenTNSim/, doi:10.5281/zenodo.3813871) 
 
 OpenTNSim-Energy benefits all the related stakeholders (shipping companies, ship builders, marine engine manufacturers, energy suppliers, policy makers, authorities, etc.) in short and long terms during waterborne energy transition.
+
+
+## Installation
+
+To install OpenTNSim-Energy, run this command in your terminal:
+
+``` bash
+pip install opentnsim
+```
