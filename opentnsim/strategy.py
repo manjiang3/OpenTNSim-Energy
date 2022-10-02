@@ -165,7 +165,7 @@ def T2Payload(vessel, T_strategy, vessel_type):
     # We include DWT_final for calculating cargo-fuel trade off by function 'get_adjusted_cargo_amount'.
     return Payload_computed 
 
-def Payload2T(vessel, Payload_strategy, vessel_type, bounds=(0, 5)):
+def Payload2T(vessel, Payload_strategy, vessel_type, bounds=(0, 20)):
     """ Calculate the corresponding draught (T_Payload2T) for each Payload_strategy
     the calculation is based on Van Dorsser et al's method (2020) (https://www.researchgate.net/publication/344340126_The_effect_of_low_water_on_loading_capacity_of_inland_ships), which applyies for inland shipping.
 
@@ -205,7 +205,7 @@ def Payload2T(vessel, Payload_strategy, vessel_type, bounds=(0, 5)):
 
     return T_Payload2T
 
-def Payload2T(vessel, Payload_strategy, vessel_type, bounds=(0, 5)):
+def Payload2T(vessel, Payload_strategy, vessel_type, bounds=(0, 20)):
     """ Calculate the corresponding draught (T_Payload2T) for each Payload_strategy
     the calculation is based on Van Dorsser et al's method (2020) (https://www.researchgate.net/publication/344340126_The_effect_of_low_water_on_loading_capacity_of_inland_ships)
 
