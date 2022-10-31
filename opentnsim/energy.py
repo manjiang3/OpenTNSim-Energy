@@ -71,6 +71,7 @@ def get_upperbound_for_power2v(vessel, width, depth, bounds=(0, 20)):
     def get_grounding_v(vessel, width, depth, bounds):
         def seek_v_given_z(v, vessel, width, depth):
             # calculate sinkage
+            v = vessel.V_w
             z_computed = (
                 (vessel.C_B * ((vessel.B * vessel._T) / (width * depth)) ** 0.81)
                 * ((v * 1.94) ** 2.08)
@@ -163,7 +164,7 @@ def power2v(vessel, edge, upperbound):
     # TODO: check what the origin of this is.
     def seek_v_given_power(v, vessel, edge):
         """function to optimize"""
-        # water depth from the edge
+        # water depth from the edge        
         h_0 = edge["Info"]["GeneralDepth"]
         h_0 = vessel.calculate_h_squat(v, h_0)
         # TODO: consider precomputing a range v/h combinations for the ship before the simulation starts
@@ -1504,6 +1505,32 @@ class EnergyCalculation:
             # depth of waterway between two points
             return h_0
 
+        def calculate_V_w(geom_start, geom_stop):
+            """method to calculate the vessel speed relative to water in meters per second between two geometries
+                - V_w: vessel speed relative to the water
+                - U_C: current speed (water speed) with directions. sailing upstream U_c < 0; sailing downstream U_c > 0; calm still water U_c = 0
+                - V_a: vessel speed adjument during sailng. if captain increases speed, V_a > 0; if captain decreases speed, V_a < 0; if captain keeps constant speed, V_a = 0
+            """
+
+            V_w = 0
+
+            # The node on the graph of vaarweginformatie.nl closest to geom_start and geom_stop
+
+            node_start = find_closest_node(self.FG, geom_start)[0]
+            node_stop = find_closest_node(self.FG, geom_stop)[0]
+            U_c = self.FG.get_edge_data(node_start, node_stop)["Info"][
+                    "CurrentSpeed"
+                ]
+            V_a = self.FG.get_edge_data(node_start, node_stop)["Info"][
+                    "VesselSpeedAdjustment"
+                ]
+           
+            V_w = self.vessel.V_g - U_c - V_a
+
+            # vessel speed relative to water between two points
+            return V_w
+        
+        
         # log messages that are related to locking
         # todo: check if this still works with Floors new locking module
         stationary_phase_indicator = [
@@ -1534,7 +1561,7 @@ class EnergyCalculation:
 
                 # calculate the distance travelled and the associated velocity
                 distance = calculate_distance(geometries[i], geometries[i + 1])
-                v = distance / delta_t
+                V_g = distance / delta_t
                 self.energy_use["distance"].append(distance)
 
                 # calculate the delta t
@@ -1546,13 +1573,15 @@ class EnergyCalculation:
                 # printstatements to check the output (can be removed later)
                 logger.debug("delta_t: {:.4f} s".format(delta_t))
                 logger.debug("distance: {:.4f} m".format(distance))
-                logger.debug("velocity: {:.4f} m/s".format(v))
+                logger.debug("velocity: {:.4f} m/s".format(V_g))
 
                 # we use the calculated velocity to determine the resistance and power required
                 # we can switch between the 'original water depth' and 'water depth considering ship squatting' for energy calculation, by using the function "calculate_h_squat (h_squat is set as Yes/No)" in the core.py
+                v = calculate_V_w(geometries[i], geometries[i + 1])
                 h_0 = self.vessel.calculate_h_squat(v, h_0)
                 print(h_0)
-                self.vessel.calculate_total_resistance(v, h_0)
+                print(v)
+                self.vessel.calculate_total_resistance(v=v, h_0=h_0)
                 self.vessel.calculate_total_power_required(v=v, h_0=h_0)
 
                 self.vessel.calculate_emission_factors_total(v=v, h_0=h_0)
@@ -1568,7 +1597,8 @@ class EnergyCalculation:
                     # consuming 'energy_delta' kWh
                     P_hotel_delta = self.vessel.P_hotel  # in kW
                     P_installed_delta = self.vessel.P_installed  # in kW
-
+                    P_tot_delta = self.vessel.P_hotel  # in kW, required power
+                    P_given_delta = self.vessel.P_hotel  # in kW, actual given power
 
                 else:  # otherwise log P_tot
                     # Energy consumed per time step delta_t in the propulsion stage
@@ -1583,200 +1613,201 @@ class EnergyCalculation:
                     )  # in kW, required power, may exceed installed engine power
                     P_given_delta = self.vessel.P_given  # in kW, actual given power
                     P_installed_delta = self.vessel.P_installed  # in kW
-                    emission_delta_CO2 = (
-                        self.vessel.total_factor_CO2 * energy_delta
-                    )  # Energy consumed per time step delta_t in the                                                                                              #stationary phase # in g
-                    emission_delta_PM10 = (
-                        self.vessel.total_factor_PM10 * energy_delta
-                    )  # in g
-                    emission_delta_NOX = (
-                        self.vessel.total_factor_NOX * energy_delta
-                    )  # in g
-                    
-                    delta_diesel_C_year = (
-                        self.vessel.final_SFC_diesel_C_year_ICE_mass * energy_delta
-                    )  # in g
-                    delta_diesel_ICE_mass = (
-                        self.vessel.final_SFC_diesel_ICE_mass * energy_delta
-                    )  # in g
-                    delta_diesel_ICE_vol = (
-                        self.vessel.final_SFC_diesel_ICE_vol * energy_delta
-                    )  # in m3
 
-                    delta_LH2_PEMFC_mass = (
-                        self.vessel.final_SFC_LH2_mass_PEMFC * energy_delta
-                    )  # in g
-                    delta_LH2_SOFC_mass = (
-                        self.vessel.final_SFC_LH2_mass_SOFC * energy_delta
-                    )  # in g
-                    delta_LH2_PEMFC_vol = (
-                        self.vessel.final_SFC_LH2_vol_PEMFC * energy_delta
-                    )  # in m3
-                    delta_LH2_SOFC_vol = (
-                        self.vessel.final_SFC_LH2_vol_SOFC * energy_delta
-                    )  # in m3
+                emission_delta_CO2 = (
+                    self.vessel.total_factor_CO2 * energy_delta
+                )  # Energy consumed per time step delta_t in the                                                                                              #stationary phase # in g
+                emission_delta_PM10 = (
+                    self.vessel.total_factor_PM10 * energy_delta
+                )  # in g
+                emission_delta_NOX = (
+                    self.vessel.total_factor_NOX * energy_delta
+                )  # in g
 
-                    delta_eLNG_PEMFC_mass = (
-                        self.vessel.final_SFC_eLNG_mass_PEMFC * energy_delta
-                    )  # in g
-                    delta_eLNG_SOFC_mass = (
-                        self.vessel.final_SFC_eLNG_mass_SOFC * energy_delta
-                    )  # in g
-                    delta_eLNG_PEMFC_vol = (
-                        self.vessel.final_SFC_eLNG_vol_PEMFC * energy_delta
-                    )  # in m3
-                    delta_eLNG_SOFC_vol = (
-                        self.vessel.final_SFC_eLNG_vol_SOFC * energy_delta
-                    )  # in m3
-                    delta_eLNG_ICE_mass = (
-                        self.vessel.final_SFC_eLNG_ICE_mass * energy_delta
-                    )  # in g
-                    delta_eLNG_ICE_vol = (
-                        self.vessel.final_SFC_eLNG_ICE_vol * energy_delta
-                    )  # in m3
+                delta_diesel_C_year = (
+                    self.vessel.final_SFC_diesel_C_year_ICE_mass * energy_delta
+                )  # in g
+                delta_diesel_ICE_mass = (
+                    self.vessel.final_SFC_diesel_ICE_mass * energy_delta
+                )  # in g
+                delta_diesel_ICE_vol = (
+                    self.vessel.final_SFC_diesel_ICE_vol * energy_delta
+                )  # in m3
 
-                    delta_eMethanol_PEMFC_mass = (
-                        self.vessel.final_SFC_eMethanol_mass_PEMFC * energy_delta
-                    )  # in g
-                    delta_eMethanol_SOFC_mass = (
-                        self.vessel.final_SFC_eMethanol_mass_SOFC * energy_delta
-                    )  # in g
-                    delta_eMethanol_PEMFC_vol = (
-                        self.vessel.final_SFC_eMethanol_vol_PEMFC * energy_delta
-                    )  # in m3
-                    delta_eMethanol_SOFC_vol = (
-                        self.vessel.final_SFC_eMethanol_vol_SOFC * energy_delta
-                    )  # in m3
-                    delta_eMethanol_ICE_mass = (
-                        self.vessel.final_SFC_eMethanol_ICE_mass * energy_delta
-                    )  # in g
-                    delta_eMethanol_ICE_vol = (
-                        self.vessel.final_SFC_eMethanol_ICE_vol * energy_delta
-                    )  # in m3
+                delta_LH2_PEMFC_mass = (
+                    self.vessel.final_SFC_LH2_mass_PEMFC * energy_delta
+                )  # in g
+                delta_LH2_SOFC_mass = (
+                    self.vessel.final_SFC_LH2_mass_SOFC * energy_delta
+                )  # in g
+                delta_LH2_PEMFC_vol = (
+                    self.vessel.final_SFC_LH2_vol_PEMFC * energy_delta
+                )  # in m3
+                delta_LH2_SOFC_vol = (
+                    self.vessel.final_SFC_LH2_vol_SOFC * energy_delta
+                )  # in m3
 
-                    delta_eNH3_PEMFC_mass = (
-                        self.vessel.final_SFC_eNH3_mass_PEMFC * energy_delta
-                    )  # in g
-                    delta_eNH3_SOFC_mass = (
-                        self.vessel.final_SFC_eNH3_mass_SOFC * energy_delta
-                    )  # in g
-                    delta_eNH3_PEMFC_vol = (
-                        self.vessel.final_SFC_eNH3_vol_PEMFC * energy_delta
-                    )  # in m3
-                    delta_eNH3_SOFC_vol = (
-                        self.vessel.final_SFC_eNH3_vol_SOFC * energy_delta
-                    )  # in m3
-                    delta_eNH3_ICE_mass = (
-                        self.vessel.final_SFC_eNH3_ICE_mass * energy_delta
-                    )  # in g
-                    delta_eNH3_ICE_vol = (
-                        self.vessel.final_SFC_eNH3_ICE_vol * energy_delta
-                    )  # in m3
+                delta_eLNG_PEMFC_mass = (
+                    self.vessel.final_SFC_eLNG_mass_PEMFC * energy_delta
+                )  # in g
+                delta_eLNG_SOFC_mass = (
+                    self.vessel.final_SFC_eLNG_mass_SOFC * energy_delta
+                )  # in g
+                delta_eLNG_PEMFC_vol = (
+                    self.vessel.final_SFC_eLNG_vol_PEMFC * energy_delta
+                )  # in m3
+                delta_eLNG_SOFC_vol = (
+                    self.vessel.final_SFC_eLNG_vol_SOFC * energy_delta
+                )  # in m3
+                delta_eLNG_ICE_mass = (
+                    self.vessel.final_SFC_eLNG_ICE_mass * energy_delta
+                )  # in g
+                delta_eLNG_ICE_vol = (
+                    self.vessel.final_SFC_eLNG_ICE_vol * energy_delta
+                )  # in m3
 
-                    delta_Li_NMC_Battery_mass = (
-                        self.vessel.final_SFC_Li_NMC_Battery_mass * energy_delta
-                    )  # in g
-                    delta_Li_NMC_Battery_vol = (
-                        self.vessel.final_SFC_Li_NMC_Battery_vol * energy_delta
-                    )  # in m3
-                    delta_Battery2000kWh = (
-                        self.vessel.final_SFC_Battery2000kWh * energy_delta
-                    )  # in ZESpack number
+                delta_eMethanol_PEMFC_mass = (
+                    self.vessel.final_SFC_eMethanol_mass_PEMFC * energy_delta
+                )  # in g
+                delta_eMethanol_SOFC_mass = (
+                    self.vessel.final_SFC_eMethanol_mass_SOFC * energy_delta
+                )  # in g
+                delta_eMethanol_PEMFC_vol = (
+                    self.vessel.final_SFC_eMethanol_vol_PEMFC * energy_delta
+                )  # in m3
+                delta_eMethanol_SOFC_vol = (
+                    self.vessel.final_SFC_eMethanol_vol_SOFC * energy_delta
+                )  # in m3
+                delta_eMethanol_ICE_mass = (
+                    self.vessel.final_SFC_eMethanol_ICE_mass * energy_delta
+                )  # in g
+                delta_eMethanol_ICE_vol = (
+                    self.vessel.final_SFC_eMethanol_ICE_vol * energy_delta
+                )  # in m3
 
-                    self.energy_use["P_tot"].append(P_tot_delta)
-                    self.energy_use["P_given"].append(P_given_delta)
-                    self.energy_use["P_installed"].append(P_installed_delta)
-                    self.energy_use["total_energy"].append(energy_delta)
-                    self.energy_use["stationary"].append(energy_delta)
-                    self.energy_use["total_emission_CO2"].append(emission_delta_CO2)
-                    self.energy_use["total_emission_PM10"].append(emission_delta_PM10)
-                    self.energy_use["total_emission_NOX"].append(emission_delta_NOX)
-                    self.energy_use["total_diesel_consumption_C_year_ICE_mass"].append(
-                        delta_diesel_C_year
-                    )
-                    self.energy_use["total_diesel_consumption_ICE_mass"].append(
-                        delta_diesel_ICE_mass
-                    )
-                    self.energy_use["total_diesel_consumption_ICE_vol"].append(
-                        delta_diesel_ICE_vol
-                    )
-                    self.energy_use["total_LH2_consumption_PEMFC_mass"].append(
-                        delta_LH2_PEMFC_mass
-                    )
-                    self.energy_use["total_LH2_consumption_SOFC_mass"].append(
-                        delta_LH2_SOFC_mass
-                    )
-                    self.energy_use["total_LH2_consumption_PEMFC_vol"].append(
-                        delta_LH2_PEMFC_vol
-                    )
-                    self.energy_use["total_LH2_consumption_SOFC_vol"].append(
-                        delta_LH2_SOFC_vol
-                    )
-                    self.energy_use["total_eLNG_consumption_PEMFC_mass"].append(
-                        delta_eLNG_PEMFC_mass
-                    )
-                    self.energy_use["total_eLNG_consumption_SOFC_mass"].append(
-                        delta_eLNG_SOFC_mass
-                    )
-                    self.energy_use["total_eLNG_consumption_PEMFC_vol"].append(
-                        delta_eLNG_PEMFC_vol
-                    )
-                    self.energy_use["total_eLNG_consumption_SOFC_vol"].append(
-                        delta_eLNG_SOFC_vol
-                    )
-                    self.energy_use["total_eLNG_consumption_ICE_mass"].append(
-                        delta_eLNG_ICE_mass
-                    )
-                    self.energy_use["total_eLNG_consumption_ICE_vol"].append(
-                        delta_eLNG_ICE_vol
-                    )
-                    self.energy_use["total_eMethanol_consumption_PEMFC_mass"].append(
-                        delta_eMethanol_PEMFC_mass
-                    )
-                    self.energy_use["total_eMethanol_consumption_SOFC_mass"].append(
-                        delta_eMethanol_SOFC_mass
-                    )
-                    self.energy_use["total_eMethanol_consumption_PEMFC_vol"].append(
-                        delta_eMethanol_PEMFC_vol
-                    )
-                    self.energy_use["total_eMethanol_consumption_SOFC_vol"].append(
-                        delta_eMethanol_SOFC_vol
-                    )
-                    self.energy_use["total_eMethanol_consumption_ICE_mass"].append(
-                        delta_eMethanol_ICE_mass
-                    )
-                    self.energy_use["total_eMethanol_consumption_ICE_vol"].append(
-                        delta_eMethanol_ICE_vol
-                    )
-                    self.energy_use["total_eNH3_consumption_PEMFC_mass"].append(
-                        delta_eNH3_PEMFC_mass
-                    )
-                    self.energy_use["total_eNH3_consumption_SOFC_mass"].append(
-                        delta_eNH3_SOFC_mass
-                    )
-                    self.energy_use["total_eNH3_consumption_PEMFC_vol"].append(
-                        delta_eNH3_PEMFC_vol
-                    )
-                    self.energy_use["total_eNH3_consumption_SOFC_vol"].append(
-                        delta_eNH3_SOFC_vol
-                    )
-                    self.energy_use["total_eNH3_consumption_ICE_mass"].append(
-                        delta_eNH3_ICE_mass
-                    )
-                    self.energy_use["total_eNH3_consumption_ICE_vol"].append(
-                        delta_eNH3_ICE_vol
-                    )
-                    self.energy_use["total_Li_NMC_Battery_mass"].append(
-                        delta_Li_NMC_Battery_mass
-                    )
-                    self.energy_use["total_Li_NMC_Battery_vol"].append(
-                        delta_Li_NMC_Battery_vol
-                    )
-                    self.energy_use["total_Battery2000kWh_consumption_num"].append(
-                        delta_Battery2000kWh
-                    )
+                delta_eNH3_PEMFC_mass = (
+                    self.vessel.final_SFC_eNH3_mass_PEMFC * energy_delta
+                )  # in g
+                delta_eNH3_SOFC_mass = (
+                    self.vessel.final_SFC_eNH3_mass_SOFC * energy_delta
+                )  # in g
+                delta_eNH3_PEMFC_vol = (
+                    self.vessel.final_SFC_eNH3_vol_PEMFC * energy_delta
+                )  # in m3
+                delta_eNH3_SOFC_vol = (
+                    self.vessel.final_SFC_eNH3_vol_SOFC * energy_delta
+                )  # in m3
+                delta_eNH3_ICE_mass = (
+                    self.vessel.final_SFC_eNH3_ICE_mass * energy_delta
+                )  # in g
+                delta_eNH3_ICE_vol = (
+                    self.vessel.final_SFC_eNH3_ICE_vol * energy_delta
+                )  # in m3
 
-                    self.energy_use["water depth"].append(h_0)
+                delta_Li_NMC_Battery_mass = (
+                    self.vessel.final_SFC_Li_NMC_Battery_mass * energy_delta
+                )  # in g
+                delta_Li_NMC_Battery_vol = (
+                    self.vessel.final_SFC_Li_NMC_Battery_vol * energy_delta
+                )  # in m3
+                delta_Battery2000kWh = (
+                    self.vessel.final_SFC_Battery2000kWh * energy_delta
+                )  # in ZESpack number
+
+                self.energy_use["P_tot"].append(P_tot_delta)
+                self.energy_use["P_given"].append(P_given_delta)
+                self.energy_use["P_installed"].append(P_installed_delta)
+                self.energy_use["total_energy"].append(energy_delta)
+                self.energy_use["stationary"].append(energy_delta)
+                self.energy_use["total_emission_CO2"].append(emission_delta_CO2)
+                self.energy_use["total_emission_PM10"].append(emission_delta_PM10)
+                self.energy_use["total_emission_NOX"].append(emission_delta_NOX)
+                self.energy_use["total_diesel_consumption_C_year_ICE_mass"].append(
+                    delta_diesel_C_year
+                )
+                self.energy_use["total_diesel_consumption_ICE_mass"].append(
+                    delta_diesel_ICE_mass
+                )
+                self.energy_use["total_diesel_consumption_ICE_vol"].append(
+                    delta_diesel_ICE_vol
+                )
+                self.energy_use["total_LH2_consumption_PEMFC_mass"].append(
+                    delta_LH2_PEMFC_mass
+                )
+                self.energy_use["total_LH2_consumption_SOFC_mass"].append(
+                    delta_LH2_SOFC_mass
+                )
+                self.energy_use["total_LH2_consumption_PEMFC_vol"].append(
+                    delta_LH2_PEMFC_vol
+                )
+                self.energy_use["total_LH2_consumption_SOFC_vol"].append(
+                    delta_LH2_SOFC_vol
+                )
+                self.energy_use["total_eLNG_consumption_PEMFC_mass"].append(
+                    delta_eLNG_PEMFC_mass
+                )
+                self.energy_use["total_eLNG_consumption_SOFC_mass"].append(
+                    delta_eLNG_SOFC_mass
+                )
+                self.energy_use["total_eLNG_consumption_PEMFC_vol"].append(
+                    delta_eLNG_PEMFC_vol
+                )
+                self.energy_use["total_eLNG_consumption_SOFC_vol"].append(
+                    delta_eLNG_SOFC_vol
+                )
+                self.energy_use["total_eLNG_consumption_ICE_mass"].append(
+                    delta_eLNG_ICE_mass
+                )
+                self.energy_use["total_eLNG_consumption_ICE_vol"].append(
+                    delta_eLNG_ICE_vol
+                )
+                self.energy_use["total_eMethanol_consumption_PEMFC_mass"].append(
+                    delta_eMethanol_PEMFC_mass
+                )
+                self.energy_use["total_eMethanol_consumption_SOFC_mass"].append(
+                    delta_eMethanol_SOFC_mass
+                )
+                self.energy_use["total_eMethanol_consumption_PEMFC_vol"].append(
+                    delta_eMethanol_PEMFC_vol
+                )
+                self.energy_use["total_eMethanol_consumption_SOFC_vol"].append(
+                    delta_eMethanol_SOFC_vol
+                )
+                self.energy_use["total_eMethanol_consumption_ICE_mass"].append(
+                    delta_eMethanol_ICE_mass
+                )
+                self.energy_use["total_eMethanol_consumption_ICE_vol"].append(
+                    delta_eMethanol_ICE_vol
+                )
+                self.energy_use["total_eNH3_consumption_PEMFC_mass"].append(
+                    delta_eNH3_PEMFC_mass
+                )
+                self.energy_use["total_eNH3_consumption_SOFC_mass"].append(
+                    delta_eNH3_SOFC_mass
+                )
+                self.energy_use["total_eNH3_consumption_PEMFC_vol"].append(
+                    delta_eNH3_PEMFC_vol
+                )
+                self.energy_use["total_eNH3_consumption_SOFC_vol"].append(
+                    delta_eNH3_SOFC_vol
+                )
+                self.energy_use["total_eNH3_consumption_ICE_mass"].append(
+                    delta_eNH3_ICE_mass
+                )
+                self.energy_use["total_eNH3_consumption_ICE_vol"].append(
+                    delta_eNH3_ICE_vol
+                )
+                self.energy_use["total_Li_NMC_Battery_mass"].append(
+                    delta_Li_NMC_Battery_mass
+                )
+                self.energy_use["total_Li_NMC_Battery_vol"].append(
+                    delta_Li_NMC_Battery_vol
+                )
+                self.energy_use["total_Battery2000kWh_consumption_num"].append(
+                    delta_Battery2000kWh
+                )
+
+                self.energy_use["water depth"].append(h_0)
                     # to do: add option enabling getting depth from large waterway network: self.energy_use["water depth info from vaarweginformatie.nl"].append(depth)
 
 

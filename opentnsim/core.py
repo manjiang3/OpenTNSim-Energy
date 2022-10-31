@@ -14,7 +14,7 @@ import simpy
 import random
 import networkx as nx
 import numpy as np
-import math
+import math 
 import pandas as pd
 
 # spatial libraries
@@ -279,36 +279,6 @@ class VesselProperties:
 
         return h_min
 
-#     def calculate_max_sinkage(self, v, h_0):
-#         """Calculate the maximum sinkage of a moving ship
-
-#         the calculation equation is described in Barrass, B. & Derrett, R.'s book (2006), Ship Stability for Masters and Mates, chapter 42. https://doi.org/10.1016/B978-0-08-097093-6.00042-6
-
-#         some explanation for the variables in the equation:
-#         - h_0: water depth
-#         - v: ship velocity relative to the water
-#         - 150: Here we use the standard width 150 m as the waterway width
-
-#         """
-
-#         max_sinkage = (
-#             (self.C_B * ((self.B * self._T) / (150 * h_0)) ** 0.81)
-#             * ((v * 1.94) ** 2.08)
-#             / 20
-#         )
-
-#         return max_sinkage
-
-#     def calculate_h_squat(self, v, h_0):
-
-#         if self.h_squat:
-#             h_squat = h_0 - self.calculate_max_sinkage(v, h_0)
-
-#         else:
-#             h_squat = h_0
-
-#         return h_squat
-
     @property
     def H(self):
         """Calculate current height based on filling degree"""
@@ -398,24 +368,66 @@ class Movable(Locatable, Routeable, Log):
 
     Used for object that can move with a fixed speed
 
-    - geometry: point used to track its current location
-    - v: speed
+    - geometry: point used to track its real-time location in the simulation
+    - V_g: vessel speed relative to the ground, V_g = V_w + U_c + V_a
+    
     """
 
-    def __init__(self, v, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(
+        self, 
+        V_g,
+        *args, 
+        **kwargs
+    ):
+        super().__init__(*args, **kwargs)        
+        
         """Initialization"""
-        self.v = v
+
+        self.V_g = V_g
+        
         self.on_pass_edge_functions = []
         self.wgs84 = pyproj.Geod(ellps="WGS84")
 
+#     @property
+#     def V_g(self):
+#         if self.V_g is not None:
+#             V_g = self.V_g
+#         else:
+#             V_g = self.V_w + self.U_c + self.V_a
+#         return V_g
+        
+#     @property
+#     def V_w(self):
+#         if self.V_w is not None:
+#             V_w = self.V_w
+#         else:
+#             V_w = self.V_g - self.U_c - self.V_a
+#         return V_w
+        
+#     @property
+#     def U_c(self):
+#         if self._U_c is not None:
+#             U_c = self._U_c
+#         else:
+#             U_c = self.env.FG.get_edge_data(edge[0], edge[1])["Info"]["CurrentSpeed"] 
+#      # todo: specify 1) the current speed in the inland waterways without considering the angle between vessel heading and current direction, 2) current speed in the ocean considering the angle between vessel heading and current direction
+#         return U_c        
+
+#     @property
+#     def V_a(self):
+#         if self._V_a is not None:
+#             V_a = self._V_a
+#         else:
+#             V_a = self.env.FG.get_edge_data(edge[0], edge[1])["Info"]["VesselSpeedAdjustment"]
+#         return V_a        
+        
     def move(self):
         """determine distance between origin and destination, and
         yield the time it takes to travel it
         Assumption is that self.path is in the right order - vessel moves from route[0] to route[-1].
         """
         self.distance = 0
-        speed = self.v
+        speed = self.V_g
 
         # Check if vessel is at correct location - if not, move to location
         if (
@@ -435,7 +447,7 @@ class Movable(Locatable, Routeable, Log):
                 shapely.geometry.shape(dest).y,
             )[2]
 
-            yield self.env.timeout(self.distance / self.current_speed)
+            yield self.env.timeout(self.distance / self.V_g)
             self.log_entry("Sailing to start", self.env.now, self.distance, dest)
 
         # Move over the path and log every step
@@ -447,15 +459,15 @@ class Movable(Locatable, Routeable, Log):
             self.geometry = nx.get_node_attributes(self.env.FG, "geometry")[destination]
 
         logger.debug("  distance: " + "%4.2f" % self.distance + " m")
-        if self.current_speed is not None:
-            logger.debug("  sailing:  " + "%4.2f" % self.current_speed + " m/s")
+        if self.V_g is not None:
+            logger.debug("  sailing:  " + "%4.2f" % self.V_g + " m/s")
             logger.debug(
                 "  duration: "
-                + "%4.2f" % ((self.distance / self.current_speed) / 3600)
+                + "%4.2f" % ((self.distance / self.V_g) / 3600)
                 + " hrs"
             )
         else:
-            logger.debug("  current_speed:  not set")
+            logger.debug("  V_g:  not set")
 
     def pass_edge(self, origin, destination):
         edge = self.env.FG.edges[origin, destination]
@@ -508,7 +520,7 @@ class Movable(Locatable, Routeable, Log):
                     0,
                     sub_orig,
                 )
-                yield self.env.timeout(distance / self.current_speed)
+                yield self.env.timeout(distance / self.V_g)
                 self.log_entry(
                     "Sailing from node {} to node {} sub edge {} stop".format(
                         origin, destination, index
@@ -533,7 +545,7 @@ class Movable(Locatable, Routeable, Log):
             # remember when we arrived at the edge
             arrival = self.env.now
 
-            v = self.current_speed
+            V_g = self.V_g
 
             # This is the case if we are sailing on power
             if getattr(self, "P_tot_given", None) is not None:
@@ -551,11 +563,12 @@ class Movable(Locatable, Routeable, Log):
                     self, width=150, depth=depth, margin=0
                 )
                 v = self.power2v(self, edge, upperbound)
+                
                 # use computed power
                 value = self.P_given
 
             # determine time to pass edge
-            timeout = distance / v
+            timeout = distance / self.V_g
 
             # Wait for edge resources to become available
             if "Resources" in edge.keys():
@@ -597,26 +610,6 @@ class Movable(Locatable, Routeable, Log):
                 dest,
             )
         self.geometry = dest
-
-    @property
-    def current_speed(self):
-        return self.v
-
-
-class ContainerDependentMovable(Movable, HasContainer):
-    """ContainerDependentMovable class
-    Used for objects that move with a speed dependent on the container level
-    compute_v: a function, given the fraction the container is filled (in [0,1]), returns the current speed"""
-
-    def __init__(self, compute_v, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        """Initialization"""
-        self.compute_v = compute_v
-        self.wgs84 = pyproj.Geod(ellps="WGS84")
-
-    @property
-    def current_speed(self):
-        return self.compute_v(self.container.level / self.container.capacity)
 
 
 class ExtraMetadata:
