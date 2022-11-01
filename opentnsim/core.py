@@ -375,7 +375,7 @@ class Movable(Locatable, Routeable, Log):
 
     def __init__(
         self, 
-        V_g,
+        V_g_ave,
         *args, 
         **kwargs
     ):
@@ -383,43 +383,12 @@ class Movable(Locatable, Routeable, Log):
         
         """Initialization"""
 
-        self.V_g = V_g
+        self.V_g_ave = V_g_ave
         
         self.on_pass_edge_functions = []
         self.wgs84 = pyproj.Geod(ellps="WGS84")
 
-#     @property
-#     def V_g(self):
-#         if self.V_g is not None:
-#             V_g = self.V_g
-#         else:
-#             V_g = self.V_w + self.U_c + self.V_a
-#         return V_g
-        
-#     @property
-#     def V_w(self):
-#         if self.V_w is not None:
-#             V_w = self.V_w
-#         else:
-#             V_w = self.V_g - self.U_c - self.V_a
-#         return V_w
-        
-#     @property
-#     def U_c(self):
-#         if self._U_c is not None:
-#             U_c = self._U_c
-#         else:
-#             U_c = self.env.FG.get_edge_data(edge[0], edge[1])["Info"]["CurrentSpeed"] 
-#      # todo: specify 1) the current speed in the inland waterways without considering the angle between vessel heading and current direction, 2) current speed in the ocean considering the angle between vessel heading and current direction
-#         return U_c        
-
-#     @property
-#     def V_a(self):
-#         if self._V_a is not None:
-#             V_a = self._V_a
-#         else:
-#             V_a = self.env.FG.get_edge_data(edge[0], edge[1])["Info"]["VesselSpeedAdjustment"]
-#         return V_a        
+     
         
     def move(self):
         """determine distance between origin and destination, and
@@ -427,7 +396,7 @@ class Movable(Locatable, Routeable, Log):
         Assumption is that self.path is in the right order - vessel moves from route[0] to route[-1].
         """
         self.distance = 0
-        speed = self.V_g
+        speed = self.V_g_ave
 
         # Check if vessel is at correct location - if not, move to location
         if (
@@ -447,7 +416,7 @@ class Movable(Locatable, Routeable, Log):
                 shapely.geometry.shape(dest).y,
             )[2]
 
-            yield self.env.timeout(self.distance / self.V_g)
+            yield self.env.timeout(self.distance / self.V_g_ave)
             self.log_entry("Sailing to start", self.env.now, self.distance, dest)
 
         # Move over the path and log every step
@@ -459,15 +428,15 @@ class Movable(Locatable, Routeable, Log):
             self.geometry = nx.get_node_attributes(self.env.FG, "geometry")[destination]
 
         logger.debug("  distance: " + "%4.2f" % self.distance + " m")
-        if self.V_g is not None:
-            logger.debug("  sailing:  " + "%4.2f" % self.V_g + " m/s")
+        if self.V_g_ave is not None:
+            logger.debug("  sailing:  " + "%4.2f" % self.V_g_ave + " m/s")
             logger.debug(
                 "  duration: "
-                + "%4.2f" % ((self.distance / self.V_g) / 3600)
+                + "%4.2f" % ((self.distance / self.V_g_ave) / 3600)
                 + " hrs"
             )
         else:
-            logger.debug("  V_g:  not set")
+            logger.debug("  V_g_ave:  not set")
 
     def pass_edge(self, origin, destination):
         edge = self.env.FG.edges[origin, destination]
@@ -520,7 +489,7 @@ class Movable(Locatable, Routeable, Log):
                     0,
                     sub_orig,
                 )
-                yield self.env.timeout(distance / self.V_g)
+                yield self.env.timeout(distance / self.V_g_ave)
                 self.log_entry(
                     "Sailing from node {} to node {} sub edge {} stop".format(
                         origin, destination, index
@@ -545,7 +514,7 @@ class Movable(Locatable, Routeable, Log):
             # remember when we arrived at the edge
             arrival = self.env.now
 
-            V_g = self.V_g
+            V_g_ave = self.V_g_ave
 
             # This is the case if we are sailing on power
             if getattr(self, "P_tot_given", None) is not None:
@@ -568,7 +537,7 @@ class Movable(Locatable, Routeable, Log):
                 value = self.P_given
 
             # determine time to pass edge
-            timeout = distance / self.V_g
+            timeout = distance / self.V_g_ave
 
             # Wait for edge resources to become available
             if "Resources" in edge.keys():

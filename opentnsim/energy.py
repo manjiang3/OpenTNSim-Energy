@@ -221,6 +221,7 @@ class ConsumesEnergy:
 
     def __init__(
         self,
+        V_g_profile,
         P_installed,
         L_w,
         C_year,
@@ -247,7 +248,7 @@ class ConsumesEnergy:
 
         """Initialization
         """
-
+        self.V_g_profile = V_g_profile
         self.P_installed = P_installed
         self.bulbous_bow = bulbous_bow
         self.P_hotel_perc = P_hotel_perc
@@ -1417,7 +1418,7 @@ class EnergyCalculation:
         """Initialization"""
         self.FG = FG
         self.vessel = vessel
-
+        
         self.energy_use = {
             "time_start": [],
             "time_stop": [],
@@ -1521,11 +1522,14 @@ class EnergyCalculation:
             U_c = self.FG.get_edge_data(node_start, node_stop)["Info"][
                     "CurrentSpeed"
                 ]
-            V_a = self.FG.get_edge_data(node_start, node_stop)["Info"][
-                    "VesselSpeedAdjustment"
-                ]
-           
-            V_w = self.vessel.V_g - U_c - V_a
+            
+            if self.vessel.V_g_profile: 
+                V_g = self.FG.get_edge_data(node_start, node_stop)["Info"][
+                    "VesselSpeedToGroundProfile" ]               
+            else:               
+                V_g = self.vessel.V_g_ave 
+                        
+            V_w = V_g - U_c
 
             # vessel speed relative to water between two points
             return V_w
@@ -1546,7 +1550,9 @@ class EnergyCalculation:
         geometries = self.vessel.log["Geometry"]
 
         # now walk past each logged event (each 'time interval' in the log corresponds to an event)
+
         for i in range(len(times) - 1):
+
             # determine the time associated with the logged event (how long did it last)
             delta_t = (times[i + 1] - times[i]).total_seconds()
 
@@ -1561,7 +1567,7 @@ class EnergyCalculation:
 
                 # calculate the distance travelled and the associated velocity
                 distance = calculate_distance(geometries[i], geometries[i + 1])
-                V_g = distance / delta_t
+                V_g_ave = distance / delta_t
                 self.energy_use["distance"].append(distance)
 
                 # calculate the delta t
@@ -1573,7 +1579,7 @@ class EnergyCalculation:
                 # printstatements to check the output (can be removed later)
                 logger.debug("delta_t: {:.4f} s".format(delta_t))
                 logger.debug("distance: {:.4f} m".format(distance))
-                logger.debug("velocity: {:.4f} m/s".format(V_g))
+                logger.debug("velocity: {:.4f} m/s".format(V_g_ave))
 
                 # we use the calculated velocity to determine the resistance and power required
                 # we can switch between the 'original water depth' and 'water depth considering ship squatting' for energy calculation, by using the function "calculate_h_squat (h_squat is set as Yes/No)" in the core.py
@@ -1603,9 +1609,11 @@ class EnergyCalculation:
                 else:  # otherwise log P_tot
                     # Energy consumed per time step delta_t in the propulsion stage
                     energy_delta = (
-                        self.vessel.P_given * delta_t / 3600
+                        self.vessel.P_given * delta_t * ( v/ V_g_ave) / 3600
                     )  #second/3600=hour -->kWh, when P_tot >= P_installed, P_given = P_installed; when P_tot < P_installed, P_given = P_tot
-
+                    # energy_delta = (
+                    #     self.vessel.P_given * delta_t / 3600
+                    # )  #second/3600=hour -->kWh, when P_tot >= P_installed, P_given = P_installed; when P_tot < P_installed, P_given = P_tot
                     # Emissions CO2, PM10 and NOX, in gram - emitted in the propulsion stage per time step delta_t,
                     # consuming 'energy_delta' kWh
                     P_tot_delta = (
