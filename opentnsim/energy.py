@@ -227,6 +227,7 @@ class ConsumesEnergy:
         C_year,
         current_year=None,  # current_year
         bulbous_bow=False,
+        wind_influence=False,
         P_hotel_perc=0.05,
         P_hotel=None,
         P_tot_given=None,  # the actual power engine setting
@@ -251,6 +252,7 @@ class ConsumesEnergy:
         self.V_g_profile = V_g_profile
         self.P_installed = P_installed
         self.bulbous_bow = bulbous_bow
+        self.wind_influence = wind_influence
         self.P_hotel_perc = P_hotel_perc
         if (
             P_hotel
@@ -630,6 +632,18 @@ class ConsumesEnergy:
 
         return self.R_res
 
+    def calculate_wind_influence(self):
+        U_wind = 2 # m/s
+        if self.wind_influence:
+            self.R_wind = 0.5 * self.C_drag * self.rho_air * self.A_abw * U_wind
+                    
+        else:
+            self.R_wind = 0
+#     todo: 1) add the angle between wind force direction and vessel sailing direction to determine wind force to the vessel 2) add wind speed as input on the edge 
+    
+    
+        return self.R_wind
+    
     def calculate_total_resistance(self, v, h_0):
         """Total resistance:
 
@@ -642,6 +656,7 @@ class ConsumesEnergy:
         self.calculate_appendage_resistance(v)
         self.calculate_wave_resistance(v, h_0)
         self.calculate_residual_resistance(v, h_0)
+        self.calculate_wind_influence()
 
         # The total resistance R_tot [kN] = R_f * (1+k1) + R_APP + R_W + R_TR + R_A
         self.R_tot = (
@@ -651,6 +666,7 @@ class ConsumesEnergy:
             + self.R_TR
             + self.R_A
             + self.R_B
+            + self.R_wind
         )
 
         return self.R_tot
