@@ -538,6 +538,7 @@ class Movable(Locatable, Routeable, Log):
 
             # determine time to pass edge
             timeout = distance / self.V_g_ave
+            # timeout = (distance / self.V_g_ave )* ( v/ self.V_g_ave)
 
             # Wait for edge resources to become available
             if "Resources" in edge.keys():

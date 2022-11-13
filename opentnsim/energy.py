@@ -227,6 +227,7 @@ class ConsumesEnergy:
         C_year,
         current_year=None,  # current_year
         bulbous_bow=False,
+        sailing_upstream=False,
         wind_influence=False,
         P_hotel_perc=0.05,
         P_hotel=None,
@@ -252,6 +253,7 @@ class ConsumesEnergy:
         self.V_g_profile = V_g_profile
         self.P_installed = P_installed
         self.bulbous_bow = bulbous_bow
+        self.sailing_upstream = sailing_upstream
         self.wind_influence = wind_influence
         self.P_hotel_perc = P_hotel_perc
         if (
@@ -1544,8 +1546,12 @@ class EnergyCalculation:
                     "VesselSpeedToGroundProfile" ]               
             else:               
                 V_g = self.vessel.V_g_ave 
-                        
-            V_w = V_g - U_c
+           # get the velocity to the water based on sailing directions 
+            if self.vessel.sailing_upstream: 
+                V_w = V_g - U_c   # the velocity to water when sailing upstream           
+            else:               
+                V_w = V_g + U_c   # the velocity to water when sailing downstream          
+            print(V_w,'V_w')
 
             # vessel speed relative to water between two points
             return V_w
@@ -1625,7 +1631,7 @@ class EnergyCalculation:
                 else:  # otherwise log P_tot
                     # Energy consumed per time step delta_t in the propulsion stage
                     energy_delta = (
-                        self.vessel.P_given * delta_t  / 3600
+                        self.vessel.P_given * delta_t * ( v/ V_g_ave) / 3600
                     )  #second/3600=hour -->kWh, when P_tot >= P_installed, P_given = P_installed; when P_tot < P_installed, P_given = P_tot
                     # energy_delta = (
                     #     self.vessel.P_given * delta_t * ( v/ V_g_ave) / 3600
