@@ -383,4 +383,48 @@ def get_upperbound_for_power2v(vessel, width, depth, margin=0, bounds=(0, 20)):
     return upperbound, selected, results_df
 
 
+def power2v(vessel, h_0, power_applied, upperbound):
+    """Compute vessel velocity given an edge and power (P_tot_given)
+
+    bounds is the limits where to look for a solution for the velocity [m/s]
+    returns velocity [m/s]
+    """
+    # upperbound = get_upperbound_for_power2v()
+    # bounds > 10 gave an issue...
+    # TODO: check what the origin of this is.
+    def seek_v_given_power(v, vessel, power_applied, h_0):
+        """function to optimize"""
+        # water depth from the edge        
+        h_0 = h_0
+        h_0 = vessel.calculate_h_squat(v, h_0)
+        # TODO: consider precomputing a range v/h combinations for the ship before the simulation starts
+        vessel.calculate_total_resistance(v, h_0)
+        # compute total power given
+        P_given = vessel.calculate_total_power_required(v=v, h_0=h_0)
+        if isinstance(vessel.P_tot, complex):
+            raise ValueError(f"P tot is complex: {vessel.P_tot}")
+
+            vessel.P_tot_given = power_applied
+         
+        # compute difference between power setting by captain and power needed for velocity
+        diff = vessel.P_tot_given - vessel.P_tot
+        # print(vessel.P_tot_given, vessel.P_tot, diff)
+        logger.debug(
+            f"optimizing for v: {v}, P_tot_given: {vessel.P_tot_given}, P_tot {vessel.P_tot}, P_given {P_given}"
+        )
+        return diff**2
+
+    # fill in some of the parameters that we already know
+    fun = functools.partial(seek_v_given_power, vessel=vessel, power_applied= power_applied, h_0=h_0)
+    # lookup a minimum
+    fit = scipy.optimize.minimize_scalar(
+        fun, bounds=(0, upperbound), method="bounded", options=dict(xatol=0.0000001)
+    )
+    V_w = fit.x
+    # print(V_w,"vw")
+    # check if we found a minimum
+    if not fit.success:
+        raise ValueError(fit)
+    logger.debug(f"fit: {fit}")
+    return V_w
 

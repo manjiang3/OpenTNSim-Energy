@@ -19,6 +19,7 @@ import tqdm
 import opentnsim
 import opentnsim.strategy
 import opentnsim.graph_module
+from opentnsim.strategy import get_upperbound_for_power2v
 
 # Used for mathematical functions
 import math
@@ -174,6 +175,11 @@ def power2v(vessel, edge, upperbound):
         if isinstance(vessel.P_tot, complex):
             raise ValueError(f"P tot is complex: {vessel.P_tot}")
 
+        if vessel.P_tot_given_profile:
+            vessel.P_tot_given = edge["Info"]["PowerApplied" ]                     
+        else:
+            vessel.P_tot_given = vessel.P_tot_given
+         
         # compute difference between power setting by captain and power needed for velocity
         diff = vessel.P_tot_given - vessel.P_tot
         logger.debug(
@@ -222,11 +228,13 @@ class ConsumesEnergy:
     def __init__(
         self,
         V_g_profile,
+        P_tot_given_profile,
         P_installed,
         L_w,
         C_year,
         current_year=None,  # current_year
         bulbous_bow=False,
+        sailing_on_power=False,
         sailing_upstream=False,
         wind_influence=False,
         P_hotel_perc=0.05,
@@ -251,8 +259,10 @@ class ConsumesEnergy:
         """Initialization
         """
         self.V_g_profile = V_g_profile
+        self.P_tot_given_profile = P_tot_given_profile
         self.P_installed = P_installed
         self.bulbous_bow = bulbous_bow
+        self.sailing_on_power = sailing_on_power
         self.sailing_upstream = sailing_upstream
         self.wind_influence = wind_influence
         self.P_hotel_perc = P_hotel_perc
@@ -1528,19 +1538,19 @@ class EnergyCalculation:
             """method to calculate the vessel speed relative to water in meters per second between two geometries
                 - V_w: vessel speed relative to the water
                 - U_C: current speed (water speed) with directions. sailing upstream U_c < 0; sailing downstream U_c > 0; calm still water U_c = 0
-                - V_a: vessel speed adjument during sailng. if captain increases speed, V_a > 0; if captain decreases speed, V_a < 0; if captain keeps constant speed, V_a = 0
+                
             """
 
-            V_w = 0
-
             # The node on the graph of vaarweginformatie.nl closest to geom_start and geom_stop
-
+            V_w = 0
             node_start = find_closest_node(self.FG, geom_start)[0]
             node_stop = find_closest_node(self.FG, geom_stop)[0]
             U_c = self.FG.get_edge_data(node_start, node_stop)["Info"][
                     "CurrentSpeed"
                 ]
-            
+
+
+
             if self.vessel.V_g_profile: 
                 V_g = self.FG.get_edge_data(node_start, node_stop)["Info"][
                     "VesselSpeedToGroundProfile" ]               
@@ -1605,10 +1615,15 @@ class EnergyCalculation:
 
                 # we use the calculated velocity to determine the resistance and power required
                 # we can switch between the 'original water depth' and 'water depth considering ship squatting' for energy calculation, by using the function "calculate_h_squat (h_squat is set as Yes/No)" in the core.py
-                v = calculate_V_w(geometries[i], geometries[i + 1])
-                h_0 = self.vessel.calculate_h_squat(v, h_0)
+
+                # v = calculate_V_w(geometries[i], geometries[i + 1])
+                v = self.vessel.V_g_ave
+                if self.vessel.sailing_on_power is False:
+                    v = calculate_V_w(geometries[i], geometries[i + 1])
+
+                h_0 = self.vessel.calculate_h_squat(v=v, h_0=h_0)
                 print(h_0)
-                print(v)
+                print(v,'v4energy')
                 self.vessel.calculate_total_resistance(v=v, h_0=h_0)
                 self.vessel.calculate_total_power_required(v=v, h_0=h_0)
 
