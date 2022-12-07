@@ -400,14 +400,14 @@ def power2v(vessel, h_0, power_applied, upperbound):
         # TODO: consider precomputing a range v/h combinations for the ship before the simulation starts
         vessel.calculate_total_resistance(v, h_0)
         # compute total power given
-        P_given = vessel.calculate_total_power_required(v=v, h_0=h_0)
+        (eta_D, P_propulsion,P_tot,P_given) = vessel.calculate_total_power_required(v=v, h_0=h_0)
         if isinstance(vessel.P_tot, complex):
             raise ValueError(f"P tot is complex: {vessel.P_tot}")
 
-            vessel.P_tot_given = power_applied
+            
          
         # compute difference between power setting by captain and power needed for velocity
-        diff = vessel.P_tot_given - vessel.P_tot
+        diff = power_applied - vessel.P_tot
         # print(vessel.P_tot_given, vessel.P_tot, diff)
         logger.debug(
             f"optimizing for v: {v}, P_tot_given: {vessel.P_tot_given}, P_tot {vessel.P_tot}, P_given {P_given}"

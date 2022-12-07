@@ -358,6 +358,8 @@ class ConsumesEnergy:
 
         # TO DO: add properties for seagoing ships with bulbs
 
+
+
         self.C_M = 1.006 - 0.0056 * self.C_B ** (-3.56)  # Midship section coefficient
         self.C_WP = (1 + 2 * self.C_B) / 3  # Waterplane coefficient
         self.C_P = self.C_B / self.C_M  # Prismatic coefficient
@@ -498,6 +500,163 @@ class ConsumesEnergy:
 
         return self.R_APP
 
+    def karpov(self, v, h_0):
+        """Intermediate calculation: Karpov
+
+        - The Karpov method computes a velocity correction that accounts for limited water depth (corrected velocity V2,
+          expressed as "Vs + delta_V" in the paper), but it also can be used for deeper water depth (h_0 / T >= 9.5).
+        - V2 has to be implemented in the wave resistance (R_W) and the residual resistance terms (R_res: R_TR, R_A, R_B)
+        """
+
+        # The Froude number used in the Karpov method is the depth related froude number F_rh
+
+        # The different alpha** curves are determined with a sixth power polynomial approximation in Excel
+        # A distinction is made between different ranges of Froude numbers, because this resulted in a better approximation of the curve
+        assert self.g >= 0, f"g should be positive: {self.g}"
+        assert h_0 >= 0, f"g should be positive: {h_0}"
+        self.F_rh = v / np.sqrt(self.g * h_0)
+
+        if self.F_rh <= 0.4:
+
+            if 0 <= h_0 / self.T < 1.75:
+                self.alpha_xx = (-4 * 10 ** (-12)) * self.F_rh**3 - 0.2143 * self.F_rh**2 - 0.0643 * self.F_rh + 0.9997
+            if 1.75 <= h_0 / self.T < 2.25:
+                self.alpha_xx = -0.8333 * self.F_rh**3 + 0.25 * self.F_rh**2 - 0.0167 * self.F_rh + 1
+            if 2.25 <= h_0 / self.T < 2.75:
+                self.alpha_xx = -1.25 * self.F_rh**4 + 0.5833 * self.F_rh**3 - 0.0375 * self.F_rh**2 - 0.0108 * self.F_rh + 1
+            if h_0 / self.T >= 2.75:
+                self.alpha_xx = 1
+
+        if self.F_rh > 0.4:
+            if 0 <= h_0 / self.T < 1.75:
+                self.alpha_xx = (
+                    -0.9274 * self.F_rh**6
+                    + 9.5953 * self.F_rh**5
+                    - 37.197 * self.F_rh**4
+                    + 69.666 * self.F_rh**3
+                    - 65.391 * self.F_rh**2
+                    + 28.025 * self.F_rh
+                    - 3.4143
+                )
+            if 1.75 <= h_0 / self.T < 2.25:
+                self.alpha_xx = (
+                    2.2152 * self.F_rh**6
+                    - 11.852 * self.F_rh**5
+                    + 21.499 * self.F_rh**4
+                    - 12.174 * self.F_rh**3
+                    - 4.7873 * self.F_rh**2
+                    + 5.8662 * self.F_rh
+                    - 0.2652
+                )
+            if 2.25 <= h_0 / self.T < 2.75:
+                self.alpha_xx = (
+                    1.2205 * self.F_rh**6
+                    - 5.4999 * self.F_rh**5
+                    + 5.7966 * self.F_rh**4
+                    + 6.6491 * self.F_rh**3
+                    - 16.123 * self.F_rh**2
+                    + 9.2016 * self.F_rh
+                    - 0.6342
+                )
+            if 2.75 <= h_0 / self.T < 3.25:
+                self.alpha_xx = (
+                    -0.4085 * self.F_rh**6
+                    + 4.534 * self.F_rh**5
+                    - 18.443 * self.F_rh**4
+                    + 35.744 * self.F_rh**3
+                    - 34.381 * self.F_rh**2
+                    + 15.042 * self.F_rh
+                    - 1.3807
+                )
+            if 3.25 <= h_0 / self.T < 3.75:
+                self.alpha_xx = (
+                    0.4078 * self.F_rh**6
+                    - 0.919 * self.F_rh**5
+                    - 3.8292 * self.F_rh**4
+                    + 15.738 * self.F_rh**3
+                    - 19.766 * self.F_rh**2
+                    + 9.7466 * self.F_rh
+                    - 0.6409
+                )
+            if 3.75 <= h_0 / self.T < 4.5:
+                self.alpha_xx = (
+                    0.3067 * self.F_rh**6
+                    - 0.3404 * self.F_rh**5
+                    - 5.0511 * self.F_rh**4
+                    + 16.892 * self.F_rh**3
+                    - 20.265 * self.F_rh**2
+                    + 9.9002 * self.F_rh
+                    - 0.6712
+                )
+            if 4.5 <= h_0 / self.T < 5.5:
+                self.alpha_xx = (
+                    0.3212 * self.F_rh**6
+                    - 0.3559 * self.F_rh**5
+                    - 5.1056 * self.F_rh**4
+                    + 16.926 * self.F_rh**3
+                    - 20.253 * self.F_rh**2
+                    + 10.013 * self.F_rh
+                    - 0.7196
+                )
+            if 5.5 <= h_0 / self.T < 6.5:
+                self.alpha_xx = (
+                    0.9252 * self.F_rh**6
+                    - 4.2574 * self.F_rh**5
+                    + 5.0363 * self.F_rh**4
+                    + 3.3282 * self.F_rh**3
+                    - 10.367 * self.F_rh**2
+                    + 6.3993 * self.F_rh
+                    - 0.2074
+                )
+            if 6.5 <= h_0 / self.T < 7.5:
+                self.alpha_xx = (
+                    0.8442 * self.F_rh**6
+                    - 4.0261 * self.F_rh**5
+                    + 5.313 * self.F_rh**4
+                    + 1.6442 * self.F_rh**3
+                    - 8.1848 * self.F_rh**2
+                    + 5.3209 * self.F_rh
+                    - 0.0267
+                )
+            if 7.5 <= h_0 / self.T < 8.5:
+                self.alpha_xx = (
+                    0.1211 * self.F_rh**6
+                    + 0.628 * self.F_rh**5
+                    - 6.5106 * self.F_rh**4
+                    + 16.7 * self.F_rh**3
+                    - 18.267 * self.F_rh**2
+                    + 8.7077 * self.F_rh
+                    - 0.4745
+                )
+
+            if 8.5 <= h_0 / self.T < 9.5:
+                if self.F_rh < 0.6:
+                    self.alpha_xx = 1
+                if self.F_rh >= 0.6:
+                    self.alpha_xx = (
+                        -6.4069 * self.F_rh**6
+                        + 47.308 * self.F_rh**5
+                        - 141.93 * self.F_rh**4
+                        + 220.23 * self.F_rh**3
+                        - 185.05 * self.F_rh**2
+                        + 79.25 * self.F_rh
+                        - 12.484
+                    )
+            if h_0 / self.T >= 9.5:
+                if self.F_rh < 0.6:
+                    self.alpha_xx = 1
+                if self.F_rh >= 0.6:
+                    self.alpha_xx = (
+                        -6.0727 * self.F_rh**6
+                        + 44.97 * self.F_rh**5
+                        - 135.21 * self.F_rh**4
+                        + 210.13 * self.F_rh**3
+                        - 176.72 * self.F_rh**2
+                        + 75.728 * self.F_rh
+                        - 11.893
+                    )
+
+        self.V_2 = 0.8 * (v / self.alpha_xx)    
 
     def calculate_wave_resistance(self, v, h_0):
         """Wave resistance
@@ -507,7 +666,8 @@ class ConsumesEnergy:
         - In shallow water, the wave resistance shows an asymptotical behaviour by reaching the critical speed
         """
 
-
+        self.karpov(v, h_0)
+        v = self.V_2
         assert self.g >= 0, f"g should be positive: {self.g}"
         assert self.L >= 0, f"L should be positive: {self.L}"
         self.F_rL = v / np.sqrt(
@@ -596,8 +756,8 @@ class ConsumesEnergy:
         - 2) Resistance due to model-ship correlation (R_A)
         - 3) Resistance due to the bulbous bow (R_B)
         """
-
-
+        self.karpov(v, h_0)
+        v = self.V_2
         # Resistance due to immersed transom: R_TR [kN]
         self.F_nT = v / np.sqrt(
             2 * self.g * self.A_T / (self.B + self.B * self.C_WP)
@@ -722,7 +882,7 @@ class ConsumesEnergy:
     # negative value is in the Cd  value. so negative winddirection gives negative value because of cd. 
         else:
             self.R_wind = 0
-        print(self.R_wind,'R_wind')    
+        # print(self.R_wind,'R_wind')    
         return self.R_wind 
     
     # for the passive rudder: 
@@ -791,7 +951,7 @@ class ConsumesEnergy:
             self.R_rudder = self.calculate_angle(v)[3]
         else:
             self.R_rudder = 0
-        print(self.R_rudder,'R_rudder')    
+        # print(self.R_rudder,'R_rudder')    
         return self.R_rudder
 
     
@@ -909,6 +1069,8 @@ class ConsumesEnergy:
                 self.eta_D = 0.26
             else:
                 self.eta_D = 0.25
+        
+        self.eta_D = 0.55
         # Delivered Horse Power (DHP), P_d
         self.P_d = self.P_e / self.eta_D
 
@@ -941,7 +1103,7 @@ class ConsumesEnergy:
         # 2) self.P_tot, know the required power, especially when it exceeds installed engine power while sailing shallower and faster
         # 3) self.P_given, the actual power the engine gives for "propulsion + hotel" within its capacity (means installed power). This varible is used for calculating delta_energy of each sailing time step.
 
-        return self.P_propulsion, self.P_tot, self.P_given
+        return self.eta_D, self.P_propulsion, self.P_tot, self.P_given
 
     def emission_factors_general(self):
         """General emission factors:
