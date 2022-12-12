@@ -397,114 +397,69 @@ class ConsumesEnergy:
         self.T_F = self.T  # Forward draught of the vessel [m]
         self.h_B = 0.2 * self.T  # Position of the centre of the transverse area [m]
 
-    def calculate_frictional_resistance(self, v, h_0):
-        """Frictional resistance
-
-        - 1st resistance component defined by Holtrop and Mennen (1982)
-        - A modification to the original friction line is applied, based on literature of Zeng (2018), to account for shallow water effects
-        """
-
-        self.R_e = v * self.L / self.nu  # Reynolds number
-
-        self.D = h_0 - self.T  # distance from bottom ship to the bottom of the fairway
-        assert self.D > 0, f"D should be > 0: {self.D}"
-
-        # Friction coefficient based on CFD computations of Zeng et al. (2018), in deep water
-        self.Cf_deep = 0.08169 / ((np.log10(self.R_e) - 1.717) ** 2)
-        assert not isinstance(
-            self.Cf_deep, complex
-        ), f"Cf_deep should not be complex: {self.Cf_deep}"
-
-        # Friction coefficient based on CFD computations of Zeng et al. (2018), taking into account shallow water effects
-        self.Cf_shallow = (0.08169 / ((np.log10(self.R_e) - 1.717) ** 2)) * (
-            1
-            + (0.003998 / (np.log10(self.R_e) - 4.393)) * (self.D / self.L) ** (-1.083)
-        )
-        assert not isinstance(
-            self.Cf_shallow, complex
-        ), f"Cf_shallow should not be complex: {self.Cf_shallow}"
-
-        # Friction coefficient in deep water according to ITTC-1957 curve
-        self.Cf_0 = 0.075 / ((np.log10(self.R_e) - 2) ** 2)
-
-        # 'a' is the coefficient needed to calculate the Katsui friction coefficient
-        self.a = 0.042612 * np.log10(self.R_e) + 0.56725
-        self.Cf_Katsui = 0.0066577 / ((np.log10(self.R_e) - 4.3762) ** self.a)
-
-        # The average velocity underneath the ship, taking into account the shallow water effect
-        # This calculation is to get V_B, which will be used in the following Cf for shallow water equation:
-        if h_0 / self.T <= 4:
-            self.V_B = 0.4277 * v * np.exp((h_0 / self.T) ** (-0.07625))
-        else:
-            self.V_B = v
-
-        # cf_shallow and cf_deep cannot be applied directly, since a vessel also has non-horizontal wet surfaces that have to be taken
-        # into account. Therefore, the following formula for the final friction coefficient 'C_f' for deep water or shallow water is
-        # defined according to Zeng et al. (2018)
-
-        # calculate Friction coefficient C_f for deep water:
-
-        if (h_0 - self.T) / self.L > 1:
-            self.C_f = self.Cf_0 + (self.Cf_deep - self.Cf_Katsui) * (self.S_B / self.S)
-            logger.debug(f"now i am in the deep loop")
-        else:
-
-            # calculate Friction coefficient C_f for shallow water:
-            self.C_f = (
-                self.Cf_0
-                + (self.Cf_shallow - self.Cf_Katsui)
-                * (self.S_B / self.S)
-                * (self.V_B / v) ** 2
-            )
-            logger.debug(f"now i am in the shallow loop")
-        assert not isinstance(
-            self.C_f, complex
-        ), f"C_f should not be complex: {self.C_f}"
-
-        # The total frictional resistance R_f [kN]:
-        self.R_f = (self.C_f * 0.5 * self.rho * (v**2) * self.S) / 1000
-        assert not isinstance(
-            self.R_f, complex
-        ), f"R_f should not be complex: {self.R_f}"
-
-        return self.R_f
-
-    def calculate_viscous_resistance(self):
-        """Viscous resistance
-
-        - 2nd resistance component defined by Holtrop and Mennen (1982)
-        - Form factor (1 + k1) has to be multiplied by the frictional resistance R_f, to account for the effect of viscosity"""
-
-        # c_14 accounts for the specific shape of the afterbody
-        self.c_14 = 1 + 0.0011 * self.c_stern
-
-        # the form factor (1+k1) describes the viscous resistance
-        self.one_k1 = 0.93 + 0.487 * self.c_14 * ((self.B / self.L) ** 1.068) * (
-            (self.T / self.L) ** 0.461
-        ) * ((self.L / self.L_R) ** 0.122) * (((self.L**3) / self.delta) ** 0.365) * (
-            (1 - self.C_P) ** (-0.604)
-        )
-        self.R_f_one_k1 = self.R_f * self.one_k1
-        return self.R_f_one_k1
-
-    def calculate_appendage_resistance(self, v):
-        """Appendage resistance
-
-        - 3rd resistance component defined by Holtrop and Mennen (1982)
-        - Appendages (like a rudder, shafts, skeg) result in additional frictional resistance"""
-
-        # Frictional resistance resulting from wetted area of appendages: R_APP [kN]
-        self.R_APP = (
-            0.5 * self.rho * (v**2) * self.S_APP * self.one_k2 * self.C_f
-        ) / 1000
-
-        return self.R_APP
-
-    def karpov(self, v, h_0):
+    def karpov_return_current(self, v, h_0):
         """Intermediate calculation: Karpov
 
-        - The Karpov method computes a velocity correction that accounts for limited water depth (corrected velocity V2,
-          expressed as "Vs + delta_V" in the paper), but it also can be used for deeper water depth (h_0 / T >= 9.5).
+        - The Karpov method computes a velocity correction that accounts for returen current at limited water depth (corrected velocity V1), but it also can be used for deeper water depth (h_0 / T >= 8.5).
+        - V1 has to be implemented in the frictional resistance (R_f, R_App)
+        """
+
+        # The Froude number used in the Karpov method is the depth related froude number F_rh
+
+        # The different alpha** curves are determined with a sixth power polynomial approximation in Excel
+        # A distinction is made between different ranges of Froude numbers, because this resulted in a better approximation of the curve
+        assert self.g >= 0, f"g should be positive: {self.g}"
+        assert h_0 >= 0, f"g should be positive: {h_0}"
+        self.F_rh = v / np.sqrt(self.g * h_0)
+        
+        if h_0 / self.T < 1.2:
+            print('h_0/T is too small to sail')
+        
+        if 1.2 <= h_0 / self.T <= 1.7:
+            self.alpha_x = (
+                    -0.0000006 * self.F_rh**6
+                    + 0.00003 * self.F_rh**5
+                    - 0.0006 * self.F_rh**4
+                    + 0.0058 * self.F_rh**3
+                    - 0.0296 * self.F_rh**2
+                    + 0.0638 * self.F_rh
+                    + 0.9582
+                )
+
+        if 1.7 < h_0 / self.T <= 2.5:               
+            self.alpha_x = (
+                    -0.0000004 * self.F_rh**6
+                    + 0.00002 * self.F_rh**5
+                    - 0.0003 * self.F_rh**4
+                    + 0.0023 * self.F_rh**3
+                    - 0.0097 * self.F_rh**2
+                    + 0.0215 * self.F_rh
+                    + 0.9847
+                )
+
+        if 2.5 < h_0 / self.T <= 3.5:               
+            self.alpha_x = (
+                    -0.0000008 * self.F_rh**6
+                    + 0.00004 * self.F_rh**5
+                    - 0.0008 * self.F_rh**4
+                    + 0.007 * self.F_rh**3
+                    - 0.0292 * self.F_rh**2
+                    + 0.053 * self.F_rh
+                    + 0.969
+                )              
+
+        if h_0 / self.T > 3.5:
+            self.alpha_x = 1                
+                
+                
+        self.V_1 = 1 *(v / self.alpha_x)            
+        # self.V_1 = v
+        return self.V_1
+    
+    def karpov_wave_retardation(self, v, h_0):
+        """Intermediate calculation: Karpov
+
+        - The Karpov method computes a velocity correction that accounts for  wave retardation at limited water depth (corrected velocity V2), but it also can be used for deeper water depth (h_0 / T >= 9.5).
         - V2 has to be implemented in the wave resistance (R_W) and the residual resistance terms (R_res: R_TR, R_A, R_B)
         """
 
@@ -569,7 +524,7 @@ class ConsumesEnergy:
                     - 1.3807
                 )
             if 3.25 <= h_0 / self.T < 3.75:
-                self.alpha_xx = (
+                self.alpha_xx =  (
                     0.4078 * self.F_rh**6
                     - 0.919 * self.F_rh**5
                     - 3.8292 * self.F_rh**4
@@ -656,7 +611,121 @@ class ConsumesEnergy:
                         - 11.893
                     )
 
-        self.V_2 = 0.8 * (v / self.alpha_xx)    
+        self.V_2 = 0.85 *(v / self.alpha_xx)    # use 85% of the corrected speed        
+        # self.V_2 = v
+        return self.V_2
+        
+    def calculate_frictional_resistance(self, v, h_0):
+        """Frictional resistance
+
+        - 1st resistance component defined by Holtrop and Mennen (1982)
+        - A modification to the original friction line is applied, based on literature of Zeng (2018), to account for shallow water effects
+        """
+        # apply correction velocity V1 for frictional_resistance calculation
+        self.karpov_return_current(v, h_0)
+        v = self.V_1
+        
+        self.R_e = v * self.L / self.nu  # Reynolds number
+
+        self.D = h_0 - self.T  # distance from bottom ship to the bottom of the fairway
+        assert self.D > 0, f"D should be > 0: {self.D}"
+
+        # Friction coefficient based on CFD computations of Zeng et al. (2018), in deep water
+        self.Cf_deep = 0.08169 / ((np.log10(self.R_e) - 1.717) ** 2)
+        assert not isinstance(
+            self.Cf_deep, complex
+        ), f"Cf_deep should not be complex: {self.Cf_deep}"
+
+        # Friction coefficient based on CFD computations of Zeng et al. (2018), taking into account shallow water effects
+        self.Cf_shallow = (0.08169 / ((np.log10(self.R_e) - 1.717) ** 2)) * (
+            1
+            + (0.003998 / (np.log10(self.R_e) - 4.393)) * (self.D / self.L) ** (-1.083)
+        )
+        assert not isinstance(
+            self.Cf_shallow, complex
+        ), f"Cf_shallow should not be complex: {self.Cf_shallow}"
+
+        # Friction coefficient in deep water according to ITTC-1957 curve
+        self.Cf_0 = 0.075 / ((np.log10(self.R_e) - 2) ** 2)
+
+        # 'a' is the coefficient needed to calculate the Katsui friction coefficient
+        self.a = 0.042612 * np.log10(self.R_e) + 0.56725
+        self.Cf_Katsui = 0.0066577 / ((np.log10(self.R_e) - 4.3762) ** self.a)
+
+        # The average velocity underneath the ship, taking into account the shallow water effect
+        # This calculation is to get V_B, which will be used in the following Cf for shallow water equation:
+        if h_0 / self.T <= 4:
+            self.V_B = 0.4277 * v * np.exp((h_0 / self.T) ** (-0.07625))
+        else:
+            self.V_B = v
+
+        # cf_shallow and cf_deep cannot be applied directly, since a vessel also has non-horizontal wet surfaces that have to be taken
+        # into account. Therefore, the following formula for the final friction coefficient 'C_f' for deep water or shallow water is
+        # defined according to Zeng et al. (2018)
+
+        # calculate Friction coefficient C_f for deep water:
+
+        if (h_0 - self.T) / self.L > 1:
+            self.C_f = self.Cf_0 + (self.Cf_deep - self.Cf_Katsui) * (self.S_B / self.S)
+            logger.debug(f"now i am in the deep loop")
+        else:
+
+            # calculate Friction coefficient C_f for shallow water:
+            self.C_f = (
+                self.Cf_0
+                + (self.Cf_shallow - self.Cf_Katsui)
+                * (self.S_B / self.S)
+                * (self.V_B / v) ** 2
+            )
+            logger.debug(f"now i am in the shallow loop")
+        assert not isinstance(
+            self.C_f, complex
+        ), f"C_f should not be complex: {self.C_f}"
+
+        # The total frictional resistance R_f [kN]:
+        self.R_f = (self.C_f * 0.5 * self.rho * (v**2) * self.S) / 1000
+        # self.R_f = (self.Cf_0 * 0.5 * self.rho * (v**2) * self.S) / 1000 # use ITTC1557
+        assert not isinstance(
+            self.R_f, complex
+        ), f"R_f should not be complex: {self.R_f}"
+
+        return self.R_f
+
+    def calculate_viscous_resistance(self):
+        """Viscous resistance
+
+        - 2nd resistance component defined by Holtrop and Mennen (1982)
+        - Form factor (1 + k1) has to be multiplied by the frictional resistance R_f, to account for the effect of viscosity"""
+
+        # c_14 accounts for the specific shape of the afterbody
+        self.c_14 = 1 + 0.0011 * self.c_stern
+
+        # the form factor (1+k1) describes the viscous resistance
+        self.one_k1 = 0.93 + 0.487 * self.c_14 * ((self.B / self.L) ** 1.068) * (
+            (self.T / self.L) ** 0.461
+        ) * ((self.L / self.L_R) ** 0.122) * (((self.L**3) / self.delta) ** 0.365) * (
+            (1 - self.C_P) ** (-0.604)
+        )
+        self.R_f_one_k1 = self.R_f * self.one_k1
+        return self.R_f_one_k1
+
+    def calculate_appendage_resistance(self, v, h_0):
+        """Appendage resistance
+
+        - 3rd resistance component defined by Holtrop and Mennen (1982)
+        - Appendages (like a rudder, shafts, skeg) result in additional frictional resistance"""
+
+        # apply correction velocity V1 for appendage_resistance calculation
+        self.karpov_return_current(v, h_0)
+        v = self.V_1
+        
+        # Frictional resistance resulting from wetted area of appendages: R_APP [kN]
+        self.R_APP = (
+            0.5 * self.rho * (v**2) * self.S_APP * self.one_k2 * self.C_f
+        ) / 1000
+
+        return self.R_APP
+    
 
     def calculate_wave_resistance(self, v, h_0):
         """Wave resistance
@@ -665,8 +734,8 @@ class ConsumesEnergy:
         - When the speed or the vessel size increases, the wave making resistance increases
         - In shallow water, the wave resistance shows an asymptotical behaviour by reaching the critical speed
         """
-
-        self.karpov(v, h_0)
+        # apply karpov corrected velocity V2 to wave resistance
+        self.karpov_wave_retardation(v, h_0)
         v = self.V_2
         assert self.g >= 0, f"g should be positive: {self.g}"
         assert self.L >= 0, f"L should be positive: {self.L}"
@@ -756,8 +825,10 @@ class ConsumesEnergy:
         - 2) Resistance due to model-ship correlation (R_A)
         - 3) Resistance due to the bulbous bow (R_B)
         """
-        self.karpov(v, h_0)
+        # apply karpov corrected velocity V2 to residual resistance
+        self.karpov_wave_retardation(v, h_0)
         v = self.V_2
+        
         # Resistance due to immersed transom: R_TR [kN]
         self.F_nT = v / np.sqrt(
             2 * self.g * self.A_T / (self.B + self.B * self.C_WP)
@@ -964,7 +1035,7 @@ class ConsumesEnergy:
         self.calculate_properties()
         self.calculate_frictional_resistance(v, h_0)
         self.calculate_viscous_resistance()
-        self.calculate_appendage_resistance(v)
+        self.calculate_appendage_resistance(v, h_0)
         self.calculate_wave_resistance(v, h_0)
         self.calculate_residual_resistance(v, h_0)
         self.calculate_wind_resistance(v)
@@ -1015,62 +1086,130 @@ class ConsumesEnergy:
         
         self.F_rh = v / np.sqrt(self.g * h_0)
         
-        if h_0 >= 9:
-            if self.F_rh >= 0.5:
-                self.eta_D = 0.6
-            elif 0.325 <= self.F_rh < 0.5:
-                self.eta_D = 0.7
-            elif 0.28 <= self.F_rh < 0.325:
-                self.eta_D = 0.59
-            elif 0.2 < self.F_rh < 0.28:
-                self.eta_D = 0.56
-            elif 0.17 < self.F_rh <= 0.2:
-                self.eta_D = 0.41
-            elif 0.15 < self.F_rh <= 0.17:
-                self.eta_D = 0.35
-            else:
-                self.eta_D = 0.29
+#         if h_0 >= 9:
+#             if self.F_rh >= 0.5:
+#                 self.eta_D = 0.6
+#             elif 0.325 <= self.F_rh < 0.5:
+#                 self.eta_D = 0.7
+#             elif 0.28 <= self.F_rh < 0.325:
+#                 self.eta_D = 0.59
+#             elif 0.2 < self.F_rh < 0.28:
+#                 self.eta_D = 0.56
+#             elif 0.17 < self.F_rh <= 0.2:
+#                 self.eta_D = 0.41
+#             elif 0.15 < self.F_rh <= 0.17:
+#                 self.eta_D = 0.35
+#             else:
+#                 self.eta_D = 0.29
 
-        elif 5 <= h_0 < 9:
-            if self.F_rh > 0.62:
-                self.eta_D = 0.7
-            elif 0.58 < self.F_rh < 0.62:
-                self.eta_D = 0.68
-            elif 0.57 < self.F_rh <= 0.58:
-                self.eta_D = 0.7
-            elif 0.51 < self.F_rh <= 0.57:
-                self.eta_D = 0.68
-            elif 0.475 < self.F_rh <= 0.51:
-                self.eta_D = 0.53
-            elif 0.45 < self.F_rh <= 0.475:
-                self.eta_D = 0.4
-            elif 0.36 < self.F_rh <= 0.45:
-                self.eta_D = 0.37
-            elif 0.33 < self.F_rh <= 0.36:
-                self.eta_D = 0.36
-            elif 0.3 < self.F_rh <= 0.33:
-                self.eta_D = 0.35
-            elif 0.28 < self.F_rh <= 0.3:
-                self.eta_D = 0.331
-            else:
-                self.eta_D = 0.33
-        else:
-            if self.F_rh > 0.56:
-                self.eta_D = 0.28
-            elif 0.4 < self.F_rh <= 0.56:
-                self.eta_D = 0.275
-            elif 0.36 < self.F_rh <= 0.4:
-                self.eta_D = 0.345
-            elif 0.33 < self.F_rh <= 0.36:
-                self.eta_D = 0.28
-            elif 0.3 < self.F_rh <= 0.33:
-                self.eta_D = 0.27
-            elif 0.28 < self.F_rh <= 0.3:
-                self.eta_D = 0.26
-            else:
-                self.eta_D = 0.25
+#         elif 5 <= h_0 < 9:
+#             if self.F_rh > 0.62:
+#                 self.eta_D = 0.7
+#             elif 0.58 < self.F_rh < 0.62:
+#                 self.eta_D = 0.68
+#             elif 0.57 < self.F_rh <= 0.58:
+#                 self.eta_D = 0.7
+#             elif 0.51 < self.F_rh <= 0.57:
+#                 self.eta_D = 0.68
+#             elif 0.475 < self.F_rh <= 0.51:
+#                 self.eta_D = 0.53
+#             elif 0.45 < self.F_rh <= 0.475:
+#                 self.eta_D = 0.4
+#             elif 0.36 < self.F_rh <= 0.45:
+#                 self.eta_D = 0.37
+#             elif 0.33 < self.F_rh <= 0.36:
+#                 self.eta_D = 0.36
+#             elif 0.3 < self.F_rh <= 0.33:
+#                 self.eta_D = 0.35
+#             elif 0.28 < self.F_rh <= 0.3:
+#                 self.eta_D = 0.331
+#             else:
+#                 self.eta_D = 0.33
+#         else:
+#             if self.F_rh > 0.56:
+#                 self.eta_D = 0.28
+#             elif 0.4 < self.F_rh <= 0.56:
+#                 self.eta_D = 0.275
+#             elif 0.36 < self.F_rh <= 0.4:
+#                 self.eta_D = 0.345
+#             elif 0.33 < self.F_rh <= 0.36:
+#                 self.eta_D = 0.28
+#             elif 0.3 < self.F_rh <= 0.33:
+#                 self.eta_D = 0.27
+#             elif 0.28 < self.F_rh <= 0.3:
+#                 self.eta_D = 0.26
+#             else:
+#                 self.eta_D = 0.25
+       
+    # eta_D refers to MoVeIT report
+    
+    # deep 
+        if h_0 >= 15:
+            self.eta_D = 0.48
+            
+        # elif 15 <= h_0 < 20:
+        #     self.eta_D = 0.48
+            
+        elif 10 <= h_0 < 15:
+            self.eta_D = 0.46 
+    # shallower
+        elif 8 <= h_0 < 10:
+            self.eta_D = 0.45 
         
-        self.eta_D = 0.55
+        elif 7 <= h_0 < 8:
+            self.eta_D = 0.44                          
+
+        elif 6 <= h_0 < 7:
+            self.eta_D = 0.43
+          
+        elif 4 <= h_0 < 6:
+            self.eta_D = 0.42
+        elif 3 < h_0 < 4:
+            self.eta_D = 0.415
+        elif 2.5 <= h_0 <= 3:
+            self.eta_D = 0.4                
+
+#     # deep 
+#         if h_0 >= 10:
+#             if v >= 5:
+#                 self.eta_D = 0.5
+#             else: 
+#                 self.eta_D = 0.55        
+#     # shallower
+#         if 8 <= h_0 < 10:
+#             if v >= 4.5:
+#                 self.eta_D = 0.5
+#             else: 
+#                 self.eta_D = 0.45  
+        
+#         if 6 <= h_0 < 8:
+#             if v >= 4:
+#                 self.eta_D = 0.4
+#             else: 
+#                 self.eta_D = 0.45                  
+        
+#         if 5 <= h_0 < 6:
+#             if v >= 3.8:
+#                 self.eta_D = 0.4
+#             else: 
+#                 self.eta_D = 0.45          
+        
+#         if 4 <= h_0 < 5:
+#             if v >= 3.8:
+#                 self.eta_D = 0.35
+#             else: 
+#                 self.eta_D = 0.4
+
+#         if 3 <= h_0 < 4:
+#             if v >= 3.5:
+#                 self.eta_D = 0.25
+#             else: 
+#                 self.eta_D = 0.35                 
+                
+                
+                
+                
+        # self.eta_D = 0.55
         # Delivered Horse Power (DHP), P_d
         self.P_d = self.P_e / self.eta_D
 
