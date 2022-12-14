@@ -232,7 +232,7 @@ class ConsumesEnergy:
 
     def __init__(
         self,
-        V_g_profile,
+        use_V_g_profile,
         P_installed,
         L_w,
         C_year,
@@ -240,7 +240,7 @@ class ConsumesEnergy:
         bulbous_bow=False,
         sailing_on_power=False,
         sailing_upstream=False,
-        P_hotel_perc=0.05,
+        P_hotel_perc=None,
         P_hotel=None,
         P_tot_given=None,  # the actual power engine setting
         nu=1 * 10 ** (-6),
@@ -271,7 +271,7 @@ class ConsumesEnergy:
 
         """Initialization
         """
-        self.V_g_profile = V_g_profile
+        self.use_V_g_profile = use_V_g_profile
         self.P_installed = P_installed
         self.bulbous_bow = bulbous_bow
         self.sailing_on_power = sailing_on_power
@@ -505,113 +505,120 @@ class ConsumesEnergy:
                 )
             if 2.25 <= h_0 / self.T < 2.75:
                 self.alpha_xx = (
-                    1.2205 * self.F_rh**6
+                    (1.2205 * self.F_rh**6
                     - 5.4999 * self.F_rh**5
                     + 5.7966 * self.F_rh**4
                     + 6.6491 * self.F_rh**3
                     - 16.123 * self.F_rh**2
                     + 9.2016 * self.F_rh
-                    - 0.6342
+                    - 0.6342)
                 )
             if 2.75 <= h_0 / self.T < 3.25:
                 self.alpha_xx = (
-                    -0.4085 * self.F_rh**6
+                    (-0.4085 * self.F_rh**6
                     + 4.534 * self.F_rh**5
                     - 18.443 * self.F_rh**4
                     + 35.744 * self.F_rh**3
                     - 34.381 * self.F_rh**2
                     + 15.042 * self.F_rh
-                    - 1.3807
+                    - 1.3807)
                 )
             if 3.25 <= h_0 / self.T < 3.75:
                 self.alpha_xx =  (
-                    0.4078 * self.F_rh**6
+                    (0.4078 * self.F_rh**6
                     - 0.919 * self.F_rh**5
                     - 3.8292 * self.F_rh**4
                     + 15.738 * self.F_rh**3
                     - 19.766 * self.F_rh**2
                     + 9.7466 * self.F_rh
-                    - 0.6409
+                    - 0.6409)
                 )
             if 3.75 <= h_0 / self.T < 4.5:
                 self.alpha_xx = (
-                    0.3067 * self.F_rh**6
+                    (0.3067 * self.F_rh**6
                     - 0.3404 * self.F_rh**5
                     - 5.0511 * self.F_rh**4
                     + 16.892 * self.F_rh**3
                     - 20.265 * self.F_rh**2
                     + 9.9002 * self.F_rh
-                    - 0.6712
+                    - 0.6712)
                 )
             if 4.5 <= h_0 / self.T < 5.5:
                 self.alpha_xx = (
-                    0.3212 * self.F_rh**6
+                    (0.3212 * self.F_rh**6
                     - 0.3559 * self.F_rh**5
                     - 5.1056 * self.F_rh**4
                     + 16.926 * self.F_rh**3
                     - 20.253 * self.F_rh**2
                     + 10.013 * self.F_rh
-                    - 0.7196
+                    - 0.7196)
                 )
             if 5.5 <= h_0 / self.T < 6.5:
                 self.alpha_xx = (
-                    0.9252 * self.F_rh**6
+                    (0.9252 * self.F_rh**6
                     - 4.2574 * self.F_rh**5
                     + 5.0363 * self.F_rh**4
                     + 3.3282 * self.F_rh**3
                     - 10.367 * self.F_rh**2
                     + 6.3993 * self.F_rh
-                    - 0.2074
+                    - 0.2074)
                 )
             if 6.5 <= h_0 / self.T < 7.5:
                 self.alpha_xx = (
-                    0.8442 * self.F_rh**6
+                    (0.8442 * self.F_rh**6
                     - 4.0261 * self.F_rh**5
                     + 5.313 * self.F_rh**4
                     + 1.6442 * self.F_rh**3
                     - 8.1848 * self.F_rh**2
                     + 5.3209 * self.F_rh
-                    - 0.0267
+                    - 0.0267)
                 )
-            if 7.5 <= h_0 / self.T < 8.5:
+            if 7.5 <= h_0 / self.T < 12:
                 self.alpha_xx = (
-                    0.1211 * self.F_rh**6
+                    (0.1211 * self.F_rh**6
                     + 0.628 * self.F_rh**5
                     - 6.5106 * self.F_rh**4
                     + 16.7 * self.F_rh**3
                     - 18.267 * self.F_rh**2
                     + 8.7077 * self.F_rh
-                    - 0.4745
+                    - 0.4745)
                 )
 
-            if 8.5 <= h_0 / self.T < 9.5:
-                if self.F_rh < 0.6:
-                    self.alpha_xx = 1
-                if self.F_rh >= 0.6:
-                    self.alpha_xx = (
-                        -6.4069 * self.F_rh**6
-                        + 47.308 * self.F_rh**5
-                        - 141.93 * self.F_rh**4
-                        + 220.23 * self.F_rh**3
-                        - 185.05 * self.F_rh**2
-                        + 79.25 * self.F_rh
-                        - 12.484
-                    )
-            if h_0 / self.T >= 9.5:
-                if self.F_rh < 0.6:
-                    self.alpha_xx = 1
-                if self.F_rh >= 0.6:
-                    self.alpha_xx = (
-                        -6.0727 * self.F_rh**6
-                        + 44.97 * self.F_rh**5
-                        - 135.21 * self.F_rh**4
-                        + 210.13 * self.F_rh**3
-                        - 176.72 * self.F_rh**2
-                        + 75.728 * self.F_rh
-                        - 11.893
-                    )
+            # if 8.5 <= h_0 / self.T < 9.5:
+            #     if self.F_rh < 0.6:
+            #         self.alpha_xx = 1
+            #     if self.F_rh >= 0.6:
+            #         self.alpha_xx = (
+            #             (-6.4069 * self.F_rh**6
+            #             + 47.308 * self.F_rh**5
+            #             - 141.93 * self.F_rh**4
+            #             + 220.23 * self.F_rh**3
+            #             - 185.05 * self.F_rh**2
+            #             + 79.25 * self.F_rh
+            #             - 12.484)-0.05
+            #         )
+            # if h_0 / self.T >= 9.5:
+            #     if self.F_rh < 0.6:
+            #         self.alpha_xx = 1
+            #     if self.F_rh >= 0.6:
+            #         self.alpha_xx = (
+            #             (-6.0727 * self.F_rh**6
+            #             + 44.97 * self.F_rh**5
+            #             - 135.21 * self.F_rh**4
+            #             + 210.13 * self.F_rh**3
+            #             - 176.72 * self.F_rh**2
+            #             + 75.728 * self.F_rh
+            #             - 11.893)-0.05
+                    # )
 
-        self.V_2 = 0.85 *(v / self.alpha_xx)    # use 85% of the corrected speed        
+        if h_0 <= 3:
+            self.V_2 = 0.75 *(v / self.alpha_xx)    # use 75% of the corrected speed 
+        elif 3 < h_0 <= 6:
+            self.V_2 = 0.85 *(v / self.alpha_xx)    # use 85% 
+        # elif 6 < h_0 <= 9:
+        #     self.V_2 = 0.85 *(v / self.alpha_xx)    # use 85% 
+        else:
+            self.V_2 = 0.95 *(v / self.alpha_xx)    # use 95% of the corrected speed        
         # self.V_2 = v
         return self.V_2
         
@@ -1141,72 +1148,36 @@ class ConsumesEnergy:
 #             else:
 #                 self.eta_D = 0.25
        
-    # eta_D refers to MoVeIT report
+    # eta_D refers to MoVeIT report, range from 0.35 to 0.52
     
     # deep 
         if h_0 >= 15:
-            self.eta_D = 0.48
-            
-        # elif 15 <= h_0 < 20:
-        #     self.eta_D = 0.48
-            
+            self.eta_D = 0.52
+                        
         elif 10 <= h_0 < 15:
-            self.eta_D = 0.46 
+            self.eta_D = 0.49 
     # shallower
         elif 8 <= h_0 < 10:
-            self.eta_D = 0.45 
+            self.eta_D = 0.48
         
         elif 7 <= h_0 < 8:
-            self.eta_D = 0.44                          
+            self.eta_D = 0.475                          
 
         elif 6 <= h_0 < 7:
-            self.eta_D = 0.43
+            self.eta_D = 0.45
           
-        elif 4 <= h_0 < 6:
-            self.eta_D = 0.42
+        elif 4.5 <= h_0 < 6:
+            self.eta_D = 0.425
+        
+        elif 4 <= h_0 < 4.5:
+            self.eta_D = 0.42            
+        
         elif 3 < h_0 < 4:
-            self.eta_D = 0.415
+            self.eta_D = 0.4
+        
         elif 2.5 <= h_0 <= 3:
-            self.eta_D = 0.4                
+            self.eta_D = 0.35                
 
-#     # deep 
-#         if h_0 >= 10:
-#             if v >= 5:
-#                 self.eta_D = 0.5
-#             else: 
-#                 self.eta_D = 0.55        
-#     # shallower
-#         if 8 <= h_0 < 10:
-#             if v >= 4.5:
-#                 self.eta_D = 0.5
-#             else: 
-#                 self.eta_D = 0.45  
-        
-#         if 6 <= h_0 < 8:
-#             if v >= 4:
-#                 self.eta_D = 0.4
-#             else: 
-#                 self.eta_D = 0.45                  
-        
-#         if 5 <= h_0 < 6:
-#             if v >= 3.8:
-#                 self.eta_D = 0.4
-#             else: 
-#                 self.eta_D = 0.45          
-        
-#         if 4 <= h_0 < 5:
-#             if v >= 3.8:
-#                 self.eta_D = 0.35
-#             else: 
-#                 self.eta_D = 0.4
-
-#         if 3 <= h_0 < 4:
-#             if v >= 3.5:
-#                 self.eta_D = 0.25
-#             else: 
-#                 self.eta_D = 0.35                 
-                
-                
                 
                 
         # self.eta_D = 0.55
@@ -1991,19 +1962,24 @@ class EnergyCalculation:
                     "CurrentSpeed"
                 ]
 
+            V_g_up = self.FG.get_edge_data(node_start, node_stop)["Info"][
+                "VesselSpeedToGroundProfile_upstream" ]
+            V_g_down = self.FG.get_edge_data(node_start, node_stop)["Info"][
+                "VesselSpeedToGroundProfile_downstream" ]
 
-
-            if self.vessel.V_g_profile: 
-                V_g = self.FG.get_edge_data(node_start, node_stop)["Info"][
-                    "VesselSpeedToGroundProfile" ]               
+            if self.vessel.use_V_g_profile: 
+                if self.vessel.sailing_upstream: 
+                    V_w = V_g_up - U_c   # the velocity to water when sailing upstream           
+                else:               
+                    V_w = V_g_down + U_c   # the velocity to water when sailing downstream      
             else:               
                 V_g = self.vessel.V_g_ave 
            # get the velocity to the water based on sailing directions 
-            if self.vessel.sailing_upstream: 
-                V_w = V_g - U_c   # the velocity to water when sailing upstream           
-            else:               
-                V_w = V_g + U_c   # the velocity to water when sailing downstream          
-            print(V_w,'V_w')
+                if self.vessel.sailing_upstream: 
+                    V_w = V_g - U_c   # the velocity to water when sailing upstream           
+                else:               
+                    V_w = V_g + U_c   # the velocity to water when sailing downstream          
+            # print(V_w,'V_w')
 
             # vessel speed relative to water between two points
             return V_w
@@ -2064,8 +2040,8 @@ class EnergyCalculation:
                     v = calculate_V_w(geometries[i], geometries[i + 1])
 
                 h_0 = self.vessel.calculate_h_squat(v=v, h_0=h_0)
-                print(h_0)
-                print(v,'v4energy')
+                # print(h_0)
+                # print(v,'v4energy')
                 self.vessel.calculate_total_resistance(v=v, h_0=h_0)
                 self.vessel.calculate_total_power_required(v=v, h_0=h_0)
 
