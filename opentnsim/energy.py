@@ -1183,22 +1183,23 @@ class ConsumesEnergy:
         # self.eta_D = 0.55
         # Delivered Horse Power (DHP), P_d
         self.P_d = self.P_e / self.eta_D
+        self.P_b = self.P_d / 0.98
 
         logger.debug("eta_D = {:.2f}".format(self.eta_D))
 
         self.P_propulsion = (
-            self.P_d
+            self.P_b
         )  # propulsion power is defined here as Delivered horse power, the power delivered to propellers
 
         self.P_tot = self.P_hotel + self.P_propulsion
 
-        # Partial engine load (P_partial): needed in the 'Emission calculations'
-        if self.P_tot > self.P_installed:
+        # Partial engine load (P_partial): needed in the 'fuel and Emission calculations'
+        if self.P_propulsion > self.P_installed:
             self.P_given = self.P_installed
             self.P_partial = 1
         else:
-            self.P_given = self.P_tot
-            self.P_partial = self.P_tot / self.P_installed
+            self.P_given = self.P_propulsion
+            self.P_partial = self.P_propulsion / self.P_installed
 
         # logger.debug(f'The total power required is {self.P_tot} kW')
         # logger.debug(f'The actual total power given is {self.P_given} kW')
@@ -1213,7 +1214,7 @@ class ConsumesEnergy:
         # 2) self.P_tot, know the required power, especially when it exceeds installed engine power while sailing shallower and faster
         # 3) self.P_given, the actual power the engine gives for "propulsion + hotel" within its capacity (means installed power). This varible is used for calculating delta_energy of each sailing time step.
 
-        return self.eta_D, self.P_propulsion, self.P_tot, self.P_given
+        return self.eta_D, self.P_d, self.P_propulsion, self.P_tot, self.P_given
 
     def emission_factors_general(self):
         """General emission factors:
@@ -1969,9 +1970,11 @@ class EnergyCalculation:
 
             if self.vessel.use_V_g_profile: 
                 if self.vessel.sailing_upstream: 
-                    V_w = V_g_up - U_c   # the velocity to water when sailing upstream           
+                    V_g = V_g_up
+                    V_w = V_g - U_c   # the velocity to water when sailing upstream           
                 else:               
-                    V_w = V_g_down + U_c   # the velocity to water when sailing downstream      
+                    V_g = V_g_down
+                    V_w = V_g + U_c   # the velocity to water when sailing downstream      
             else:               
                 V_g = self.vessel.V_g_ave 
            # get the velocity to the water based on sailing directions 
@@ -1981,8 +1984,8 @@ class EnergyCalculation:
                     V_w = V_g + U_c   # the velocity to water when sailing downstream          
             # print(V_w,'V_w')
 
-            # vessel speed relative to water between two points
-            return V_w
+            # returen vessel speed to ground Vg and real vessel speed relative to water Vw between two points
+            return V_g, V_w
         
         
         # log messages that are related to locking
@@ -2004,6 +2007,7 @@ class EnergyCalculation:
         for i in range(len(times) - 1):
 
             # determine the time associated with the logged event (how long did it last)
+           
             delta_t = (times[i + 1] - times[i]).total_seconds()
 
             if delta_t != 0:
@@ -2017,7 +2021,8 @@ class EnergyCalculation:
 
                 # calculate the distance travelled and the associated velocity
                 distance = calculate_distance(geometries[i], geometries[i + 1])
-                V_g_ave = distance / delta_t
+                V_g_ave = self.vessel.V_g_ave
+                                
                 self.energy_use["distance"].append(distance)
 
                 # calculate the delta t
@@ -2035,9 +2040,10 @@ class EnergyCalculation:
                 # we can switch between the 'original water depth' and 'water depth considering ship squatting' for energy calculation, by using the function "calculate_h_squat (h_squat is set as Yes/No)" in the core.py
 
                 # v = calculate_V_w(geometries[i], geometries[i + 1])
+                
                 v = self.vessel.V_g_ave
                 if self.vessel.sailing_on_power is False:
-                    v = calculate_V_w(geometries[i], geometries[i + 1])
+                    V_g, v = calculate_V_w(geometries[i], geometries[i + 1])
 
                 h_0 = self.vessel.calculate_h_squat(v=v, h_0=h_0)
                 # print(h_0)
@@ -2064,7 +2070,7 @@ class EnergyCalculation:
                 else:  # otherwise log P_tot
                     # Energy consumed per time step delta_t in the propulsion stage
                     energy_delta = (
-                        self.vessel.P_given * delta_t * ( v/ V_g_ave) / 3600
+                        self.vessel.P_given * delta_t * (V_g_ave/V_g) / 3600
                     )  #second/3600=hour -->kWh, when P_tot >= P_installed, P_given = P_installed; when P_tot < P_installed, P_given = P_tot
                     # energy_delta = (
                     #     self.vessel.P_given * delta_t * ( v/ V_g_ave) / 3600
