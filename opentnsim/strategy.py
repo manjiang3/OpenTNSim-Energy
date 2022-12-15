@@ -407,7 +407,7 @@ def power2v(vessel, h_0, power_applied, upperbound):
             
          
         # compute difference between power setting by captain and power needed for velocity
-        diff = power_applied - vessel.P_tot
+        diff = power_applied - vessel.P_d
         # print(vessel.P_tot_given, vessel.P_tot, diff)
         logger.debug(
             f"optimizing for v: {v}, P_tot_given: {vessel.P_tot_given}, P_tot {vessel.P_tot}, P_given {P_given}"
