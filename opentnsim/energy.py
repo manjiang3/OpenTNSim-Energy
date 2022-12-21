@@ -2096,6 +2096,7 @@ class EnergyCalculation:
                 delta_diesel_C_year = (
                     self.vessel.final_SFC_diesel_C_year_ICE_mass * energy_delta
                 )  # in g
+                print(self.vessel.final_SFC_diesel_C_year_ICE_mass,'SFC final')
                 delta_diesel_ICE_mass = (
                     self.vessel.final_SFC_diesel_ICE_mass * energy_delta
                 )  # in g
