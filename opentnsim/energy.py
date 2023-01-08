@@ -1213,7 +1213,10 @@ class ConsumesEnergy:
         # 1) self.P_propulsion, for the convenience of validation.  (propulsion power and fuel used for propulsion),
         # 2) self.P_tot, know the required power, especially when it exceeds installed engine power while sailing shallower and faster
         # 3) self.P_given, the actual power the engine gives for "propulsion + hotel" within its capacity (means installed power). This varible is used for calculating delta_energy of each sailing time step.
-
+        # print(self.eta_D,'etd_D')
+        # print(self.P_d,'Pd')
+        # print(self.P_propulsion,'P_propulsion')
+        # print(self.P_tot,'Ptot')
         return self.eta_D, self.P_d, self.P_propulsion, self.P_tot, self.P_given
 
     def emission_factors_general(self):
@@ -1982,7 +1985,7 @@ class EnergyCalculation:
                     V_w = V_g - U_c   # the velocity to water when sailing upstream           
                 else:               
                     V_w = V_g + U_c   # the velocity to water when sailing downstream          
-            # print(V_w,'V_w')
+            print(V_w,'V_w')
 
             # returen vessel speed to ground Vg and real vessel speed relative to water Vw between two points
             return V_g, V_w
