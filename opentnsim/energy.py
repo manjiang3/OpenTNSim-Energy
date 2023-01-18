@@ -236,8 +236,10 @@ class ConsumesEnergy:
         P_installed,
         L_w,
         C_year,
+        narrow = False,
+        slow = False,
         current_year=None,  # current_year
-        bulbous_bow=False,
+        bulbous_bow=False,       
         sailing_on_power=False,
         sailing_upstream=False,
         P_hotel_perc=None,
@@ -274,6 +276,8 @@ class ConsumesEnergy:
         self.use_V_g_profile = use_V_g_profile
         self.P_installed = P_installed
         self.bulbous_bow = bulbous_bow
+        self.narrow = narrow
+        self.slow =slow
         self.sailing_on_power = sailing_on_power
         self.sailing_upstream = sailing_upstream
         self.P_hotel_perc = P_hotel_perc
@@ -1148,11 +1152,11 @@ class ConsumesEnergy:
 #             else:
 #                 self.eta_D = 0.25
        
-    # eta_D refers to MoVeIT report, range from 0.35 to 0.52
+    # eta_D refers to MoVeIT report, range from 0.35 to 0.53
     
     # deep 
         if h_0 >= 15:
-            self.eta_D = 0.52
+            self.eta_D = 0.53
                         
         elif 10 <= h_0 < 15:
             self.eta_D = 0.49 
@@ -1178,8 +1182,12 @@ class ConsumesEnergy:
         elif 2.5 <= h_0 <= 3:
             self.eta_D = 0.35                
 
-                
-                
+        if self.narrow:
+            self.eta_D = self.eta_D * 0.65
+        elif self.slow:
+            self.eta_D = self.eta_D * 0.6
+        else:
+            self.eta_D = self.eta_D
         # self.eta_D = 0.55
         # Delivered Horse Power (DHP), P_d
         self.P_d = self.P_e / self.eta_D
