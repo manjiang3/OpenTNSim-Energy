@@ -134,7 +134,7 @@ def get_upperbound_for_power2v(vessel, width, depth, bounds=(0, 20)):
         # vessel.calculate_properties()
         # vessel.calculate_frictional_resistance(v=velocity, h_0=h_0)
         vessel.calculate_total_resistance(v=velocity, h_0=h_0)
-        P_tot = vessel.calculate_total_power_required(v=velocity)
+        P_tot = vessel.calculate_total_power_required(v=velocity, h_0=h_0)
 
         # prepare a row
         result = {}
@@ -175,10 +175,10 @@ def power2v(vessel, edge, upperbound):
         if isinstance(vessel.P_tot, complex):
             raise ValueError(f"P tot is complex: {vessel.P_tot}")
 
-        if vessel.P_tot_given_profile:
-            vessel.P_tot_given = edge["Info"]["PowerApplied" ]                     
-        else:
-            vessel.P_tot_given = vessel.P_tot_given
+        # if vessel.P_tot_given_profile:
+        #     vessel.P_tot_given = edge["Info"]["PowerApplied" ]                     
+        # else:
+        #     vessel.P_tot_given = vessel.P_tot_given
          
         # compute difference between power setting by captain and power needed for velocity
         diff = vessel.P_tot_given - vessel.P_tot
@@ -1190,7 +1190,7 @@ class ConsumesEnergy:
             self.eta_D = self.eta_D
         # self.eta_D = 0.55
         # Delivered Horse Power (DHP), P_d
-        self.P_d = self.P_e / self.eta_D
+        self.P_d = (self.P_e / self.eta_D)
         self.P_b = self.P_d / 0.98
 
         logger.debug("eta_D = {:.2f}".format(self.eta_D))
@@ -1877,6 +1877,8 @@ class EnergyCalculation:
             "time_stop": [],
             "edge_start": [],
             "edge_stop": [],
+            "sailing_duration": [],
+            "R_tot": [],     
             "P_tot": [],
             "P_given": [],
             "P_installed": [],
@@ -1888,6 +1890,8 @@ class EnergyCalculation:
             "total_LH2_consumption_SOFC_mass": [],
             "total_LH2_consumption_PEMFC_vol": [],
             "total_LH2_consumption_SOFC_vol": [],
+            'total_H2_350bar_PEMFC_mass': [],
+            'total_H2_350bar_PEMFC_20ft_containers':[],
             "total_eLNG_consumption_PEMFC_mass": [],
             "total_eLNG_consumption_SOFC_mass": [],
             "total_eLNG_consumption_PEMFC_vol": [],
@@ -1986,6 +1990,12 @@ class EnergyCalculation:
                 else:               
                     V_g = V_g_down
                     V_w = V_g + U_c   # the velocity to water when sailing downstream      
+            elif self.vessel.sailing_on_power is True:
+                V_w = self.vessel.V_g_ave 
+                if self.vessel.sailing_upstream:
+                    V_g = self.vessel.V_g_ave + U_c
+                else:
+                    V_g = self.vessel.V_g_ave - U_c
             else:               
                 V_g = self.vessel.V_g_ave 
            # get the velocity to the water based on sailing directions 
@@ -1993,8 +2003,9 @@ class EnergyCalculation:
                     V_w = V_g - U_c   # the velocity to water when sailing upstream           
                 else:               
                     V_w = V_g + U_c   # the velocity to water when sailing downstream          
-            print(V_w,'V_w')
-
+            
+            # print(V_g,'V_g')
+            # print(V_w,'V_w')
             # returen vessel speed to ground Vg and real vessel speed relative to water Vw between two points
             return V_g, V_w
         
@@ -2053,12 +2064,17 @@ class EnergyCalculation:
                 # v = calculate_V_w(geometries[i], geometries[i + 1])
                 
                 v = self.vessel.V_g_ave
-                if self.vessel.sailing_on_power is False:
-                    V_g, v = calculate_V_w(geometries[i], geometries[i + 1])
-
+                # if self.vessel.sailing_on_power is False:
+                #     V_g, v = calculate_V_w(geometries[i], geometries[i + 1])
+                V_g, v = calculate_V_w(geometries[i], geometries[i + 1])
+                if self.vessel.sailing_on_power is True:
+                    v = self.vessel.V_g_ave
                 h_0 = self.vessel.calculate_h_squat(v=v, h_0=h_0)
                 # print(h_0)
                 # print(v,'v4energy')
+   
+                
+                
                 self.vessel.calculate_total_resistance(v=v, h_0=h_0)
                 self.vessel.calculate_total_power_required(v=v, h_0=h_0)
 
@@ -2073,12 +2089,17 @@ class EnergyCalculation:
 
                     # Emissions CO2, PM10 and NOX, in gram - emitted in the stationary stage per time step delta_t,
                     # consuming 'energy_delta' kWh
+                    sailing_duration_delta = delta_t * (V_g_ave/V_g)
+                    R_tot_delta = self.vessel.R_tot
                     P_hotel_delta = self.vessel.P_hotel  # in kW
                     P_installed_delta = self.vessel.P_installed  # in kW
                     P_tot_delta = self.vessel.P_hotel  # in kW, required power
                     P_given_delta = self.vessel.P_hotel  # in kW, actual given power
 
                 else:  # otherwise log P_tot
+          
+                    
+                    
                     # Energy consumed per time step delta_t in the propulsion stage
                     energy_delta = (
                         self.vessel.P_given * delta_t * (V_g_ave/V_g) / 3600
@@ -2088,6 +2109,8 @@ class EnergyCalculation:
                     # )  #second/3600=hour -->kWh, when P_tot >= P_installed, P_given = P_installed; when P_tot < P_installed, P_given = P_tot
                     # Emissions CO2, PM10 and NOX, in gram - emitted in the propulsion stage per time step delta_t,
                     # consuming 'energy_delta' kWh
+                    sailing_duration_delta = delta_t * (V_g_ave/V_g)
+                    R_tot_delta = self.vessel.R_tot
                     P_tot_delta = (
                         self.vessel.P_tot
                     )  # in kW, required power, may exceed installed engine power
@@ -2107,7 +2130,7 @@ class EnergyCalculation:
                 delta_diesel_C_year = (
                     self.vessel.final_SFC_diesel_C_year_ICE_mass * energy_delta
                 )  # in g
-                print(self.vessel.final_SFC_diesel_C_year_ICE_mass,'SFC final')
+                # print(self.vessel.final_SFC_diesel_C_year_ICE_mass,'SFC final')
                 delta_diesel_ICE_mass = (
                     self.vessel.final_SFC_diesel_ICE_mass * energy_delta
                 )  # in g
@@ -2127,7 +2150,12 @@ class EnergyCalculation:
                 delta_LH2_SOFC_vol = (
                     self.vessel.final_SFC_LH2_vol_SOFC * energy_delta
                 )  # in m3
-
+                delta_H2_350bar_PEMFC_mass = (
+                    self.vessel.final_SFC_LH2_mass_PEMFC * energy_delta
+                )  # in g,  mass_PEMFC for LH2 and H2 gas is the same value
+                delta_H2_350bar_PEMFC_20ft_containers = (
+                    self.vessel.final_SFC_LH2_mass_PEMFC * energy_delta / (405000*0.9)
+                ) # one 20ft H2_350bar container contains 405 kg H2, set residual H2 margin 10%, so maximum 90% storage for use
                 delta_eLNG_PEMFC_mass = (
                     self.vessel.final_SFC_eLNG_mass_PEMFC * energy_delta
                 )  # in g
@@ -2195,6 +2223,8 @@ class EnergyCalculation:
                     self.vessel.final_SFC_Battery2000kWh * energy_delta
                 )  # in ZESpack number
 
+                self.energy_use["sailing_duration"].append(sailing_duration_delta)
+                self.energy_use["R_tot"].append(R_tot_delta)            
                 self.energy_use["P_tot"].append(P_tot_delta)
                 self.energy_use["P_given"].append(P_given_delta)
                 self.energy_use["P_installed"].append(P_installed_delta)
@@ -2224,6 +2254,12 @@ class EnergyCalculation:
                 self.energy_use["total_LH2_consumption_SOFC_vol"].append(
                     delta_LH2_SOFC_vol
                 )
+                self.energy_use["total_H2_350bar_PEMFC_mass"].append(
+                    delta_H2_350bar_PEMFC_mass
+                )
+                self.energy_use["total_H2_350bar_PEMFC_20ft_containers"].append(
+                    delta_H2_350bar_PEMFC_20ft_containers
+                )               
                 self.energy_use["total_eLNG_consumption_PEMFC_mass"].append(
                     delta_eLNG_PEMFC_mass
                 )
