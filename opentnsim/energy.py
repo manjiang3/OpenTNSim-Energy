@@ -1890,8 +1890,8 @@ class EnergyCalculation:
             "total_LH2_consumption_SOFC_mass": [],
             "total_LH2_consumption_PEMFC_vol": [],
             "total_LH2_consumption_SOFC_vol": [],
-            'total_H2_350bar_PEMFC_mass': [],
-            'total_H2_350bar_PEMFC_20ft_containers':[],
+            'total_H2_500bar_PEMFC_mass': [],
+            'total_H2_500bar_PEMFC_40ft_containers':[],
             "total_eLNG_consumption_PEMFC_mass": [],
             "total_eLNG_consumption_SOFC_mass": [],
             "total_eLNG_consumption_PEMFC_vol": [],
@@ -2150,12 +2150,12 @@ class EnergyCalculation:
                 delta_LH2_SOFC_vol = (
                     self.vessel.final_SFC_LH2_vol_SOFC * energy_delta
                 )  # in m3
-                delta_H2_350bar_PEMFC_mass = (
+                delta_H2_500bar_PEMFC_mass = (
                     self.vessel.final_SFC_LH2_mass_PEMFC * energy_delta
                 )  # in g,  mass_PEMFC for LH2 and H2 gas is the same value
-                delta_H2_350bar_PEMFC_20ft_containers = (
-                    self.vessel.final_SFC_LH2_mass_PEMFC * energy_delta / (405000*0.9)
-                ) # one 20ft H2_350bar container contains 405 kg H2, set residual H2 margin 10%, so maximum 90% storage for use
+                delta_H2_500bar_PEMFC_40ft_containers = (
+                    self.vessel.final_SFC_LH2_mass_PEMFC * energy_delta / (1085000*0.9)
+                ) # one 40ft H2_500bar container contains 1085 kg H2, set residual H2 margin 10%, so maximum 90% storage for use
                 delta_eLNG_PEMFC_mass = (
                     self.vessel.final_SFC_eLNG_mass_PEMFC * energy_delta
                 )  # in g
@@ -2254,11 +2254,11 @@ class EnergyCalculation:
                 self.energy_use["total_LH2_consumption_SOFC_vol"].append(
                     delta_LH2_SOFC_vol
                 )
-                self.energy_use["total_H2_350bar_PEMFC_mass"].append(
-                    delta_H2_350bar_PEMFC_mass
+                self.energy_use["total_H2_500bar_PEMFC_mass"].append(
+                    delta_H2_500bar_PEMFC_mass
                 )
-                self.energy_use["total_H2_350bar_PEMFC_20ft_containers"].append(
-                    delta_H2_350bar_PEMFC_20ft_containers
+                self.energy_use["total_H2_500bar_PEMFC_40ft_containers"].append(
+                    delta_H2_500bar_PEMFC_40ft_containers
                 )               
                 self.energy_use["total_eLNG_consumption_PEMFC_mass"].append(
                     delta_eLNG_PEMFC_mass
