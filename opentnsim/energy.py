@@ -1890,6 +1890,8 @@ class EnergyCalculation:
             "total_LH2_consumption_SOFC_mass": [],
             "total_LH2_consumption_PEMFC_vol": [],
             "total_LH2_consumption_SOFC_vol": [],
+            'total_H2_300bar_PEMFC_mass': [],
+            'total_H2_300bar_PEMFC_40ft_containers':[],
             'total_H2_500bar_PEMFC_mass': [],
             'total_H2_500bar_PEMFC_40ft_containers':[],
             "total_eLNG_consumption_PEMFC_mass": [],
@@ -2156,6 +2158,12 @@ class EnergyCalculation:
                 delta_H2_500bar_PEMFC_40ft_containers = (
                     self.vessel.final_SFC_LH2_mass_PEMFC * energy_delta / (1085000*0.9)
                 ) # one 40ft H2_500bar container contains 1085 kg H2, set residual H2 margin 10%, so maximum 90% storage for use
+                delta_H2_300bar_PEMFC_mass = (
+                    self.vessel.final_SFC_LH2_mass_PEMFC * energy_delta
+                )  # in g,  mass_PEMFC for LH2 and H2 gas is the same value
+                delta_H2_300bar_PEMFC_40ft_containers = (
+                    self.vessel.final_SFC_LH2_mass_PEMFC * energy_delta / (845000*0.9)
+                ) # one 40ft H2_300bar container contains 845 kg H2, set residual H2 margin 10%, so maximum 90% storage for use
                 delta_eLNG_PEMFC_mass = (
                     self.vessel.final_SFC_eLNG_mass_PEMFC * energy_delta
                 )  # in g
@@ -2259,7 +2267,13 @@ class EnergyCalculation:
                 )
                 self.energy_use["total_H2_500bar_PEMFC_40ft_containers"].append(
                     delta_H2_500bar_PEMFC_40ft_containers
-                )               
+                ) 
+                self.energy_use["total_H2_300bar_PEMFC_mass"].append(
+                    delta_H2_300bar_PEMFC_mass
+                )
+                self.energy_use["total_H2_300bar_PEMFC_40ft_containers"].append(
+                    delta_H2_300bar_PEMFC_40ft_containers
+                )
                 self.energy_use["total_eLNG_consumption_PEMFC_mass"].append(
                     delta_eLNG_PEMFC_mass
                 )
