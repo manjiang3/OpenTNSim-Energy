@@ -416,8 +416,8 @@ class ConsumesEnergy:
         assert h_0 >= 0, f"g should be positive: {h_0}"
         self.F_rh = v / np.sqrt(self.g * h_0)
         
-        if h_0 / self.T < 1.2:
-            print('h_0/T is too small to sail')
+        # if h_0 / self.T < 1.2:
+            # print('h_0/T is too small to sail')
         
         if 1.2 <= h_0 / self.T <= 1.7:
             self.alpha_x = (
