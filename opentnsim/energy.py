@@ -419,7 +419,7 @@ class ConsumesEnergy:
         # if h_0 / self.T < 1.2:
             # print('h_0/T is too small to sail')
         
-        if 1.2 <= h_0 / self.T <= 1.7:
+        if 1 < h_0 / self.T <= 1.7:
             self.alpha_x = (
                     -0.0000006 * self.F_rh**6
                     + 0.00003 * self.F_rh**5
@@ -1202,12 +1202,14 @@ class ConsumesEnergy:
         self.P_tot = self.P_hotel + self.P_propulsion
 
         # Partial engine load (P_partial): needed in the 'fuel and Emission calculations'
-        if self.P_propulsion > self.P_installed:
+        if self.P_tot > self.P_installed:
             self.P_given = self.P_installed
             self.P_partial = 1
         else:
-            self.P_given = self.P_propulsion
-            self.P_partial = self.P_propulsion / self.P_installed
+            # self.P_given = self.P_propulsion
+            self.P_given = self.P_tot
+            # self.P_partial = self.P_propulsion / self.P_installed
+            self.P_partial = self.P_tot / self.P_installed
 
         # logger.debug(f'The total power required is {self.P_tot} kW')
         # logger.debug(f'The actual total power given is {self.P_given} kW')
@@ -1812,11 +1814,10 @@ class ConsumesEnergy:
     def calculate_emission_rates_g_m(self, v):
         """CO2, PM10, NOX emission rates in g/m:
 
-        - The CO2, PM10, NOX emission rates in g/m can be computed by total fuel use in g (P_tot * delt_t * self.total_factor_) diveded by the sailing distance (v * delt_t)
         """
-        self.emission_g_m_CO2 = self.P_given * self.total_factor_CO2 / v / 3600
-        self.emission_g_m_PM10 = self.P_given * self.total_factor_PM10 / v / 3600
-        self.emission_g_m_NOX = self.P_given * self.total_factor_NOX / v / 3600
+        self.emission_g_m_CO2 = self.P_given * self.total_factor_CO2 / 3600 / v
+        self.emission_g_m_PM10 = self.P_given * self.total_factor_PM10 / 3600 / v
+        self.emission_g_m_NOX = self.P_given * self.total_factor_NOX  /3600 / v
 
         return self.emission_g_m_CO2, self.emission_g_m_PM10, self.emission_g_m_NOX
 
