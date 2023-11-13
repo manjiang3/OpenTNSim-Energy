@@ -1,7 +1,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-informational.svg)](https://github.com/manjiang3/OpenTNSim-Energy/edit/main/LICENSE.txt)
 [![DOI](https://zenodo.org/badge/538904570.svg)](https://zenodo.org/badge/latestdoi/538904570)
 ## OpenTNSim-Energy
-### Advancing decarbonization in waterborne supply chains worldwide
+### Advancing energy transition in inland waterborne supply chains 
 
 
 OpenTNSim-Energy is a validated open-source software, which quantitatively simulates the energy consumption, fuel use (for both diesel and renewable energy sources) and emissions (CO2, PM10, NOx) of vessels sailing over waters. 
